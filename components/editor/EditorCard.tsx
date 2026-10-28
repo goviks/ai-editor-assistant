@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
@@ -51,13 +51,14 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
       event.preventDefault();
-      if (selection && !isBusy) onImprove();
+      if (hasText && !isBusy) onImprove();
     }
   };
 
   const selectedChars = selection ? selection.end - selection.start : 0;
   const words = documentText.trim() ? documentText.trim().split(/\s+/).length : 0;
-  const canImprove = selectedChars > 0 && !isBusy;
+  const hasText = documentText.trim().length > 0;
+  const canImprove = hasText && !isBusy;
 
   return (
     <section
@@ -82,7 +83,9 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
         >
           {selectedChars > 0
             ? `Выделено ${selectedChars} симв.`
-            : "Выделите фрагмент мышью или Shift + стрелками"}
+            : hasText
+              ? "Без выделения будет переписан весь текст"
+              : "Начните печатать — кнопка станет активной"}
         </p>
       </header>
 
@@ -108,7 +111,7 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
 
       <footer className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p id="editor-hint" className="text-xs text-slate-400">
-          Ctrl + Enter — запустить улучшение выделенного
+          Ctrl + Enter — улучшить выделенное или весь текст
         </p>
 
         <Button
@@ -117,7 +120,7 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
           icon={<Sparkles className="h-4 w-4" aria-hidden="true" />}
           title={
             selectedChars === 0
-              ? "Сначала выделите фрагмент текста"
+              ? "Переписать весь текст"
               : "Улучшить выделенный фрагмент"
           }
         >

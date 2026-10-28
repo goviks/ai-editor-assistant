@@ -27,11 +27,8 @@ export function useAIStream() {
   const abortReasonRef = useRef<AbortReason>(null);
   const runIdRef = useRef(0);
 
-  const run = useCallback(async (textOverride?: string) => {
+  const execute = useCallback(async (text: string, range: { start: number; end: number }) => {
     const state = useAssistantStore.getState();
-    const text = (textOverride ?? getSelectedText(state)).trim();
-
-    if (!text) return;
 
     controllerRef.current?.abort();
     if (timeoutRef.current) {
@@ -46,7 +43,7 @@ export function useAIStream() {
     controllerRef.current = controller;
     abortReasonRef.current = null;
 
-    state.begin(text);
+    state.begin(text, range);
     timeoutRef.current = setTimeout(() => {
       abortReasonRef.current = "timeout";
       controller.abort();
@@ -151,16 +148,31 @@ export function useAIStream() {
     }
   }, []);
 
+  const run = useCallback(async () => {
+    const state = useAssistantStore.getState();
+    const selected = getSelectedText(state).trim();
+
+    if (selected && state.selection) {
+      await execute(selected, { start: state.selection.start, end: state.selection.end });
+      return;
+    }
+
+    const whole = state.documentText.trim();
+    if (!whole) return;
+
+    await execute(whole, { start: 0, end: state.documentText.length });
+  }, [execute]);
+
   const cancel = useCallback(() => {
     abortReasonRef.current = "user";
     controllerRef.current?.abort();
   }, []);
 
   const retry = useCallback(() => {
-    const { source } = useAssistantStore.getState();
+    const { source, sourceRange, documentText } = useAssistantStore.getState();
     if (!source) return;
-    void run(source);
-  }, [run]);
+    void execute(source, sourceRange ?? { start: 0, end: documentText.length });
+  }, [execute]);
 
   useEffect(
     () => () => {

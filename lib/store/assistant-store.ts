@@ -19,6 +19,7 @@ interface AssistantState {
   error: AIError | null;
   meta: StreamMeta | null;
   source: string;
+  sourceRange: SelectionRange | null;
   mode: AssistMode;
 
   setDocumentText: (text: string) => void;
@@ -27,7 +28,7 @@ interface AssistantState {
   insertResult: () => void;
   clearCaretRequest: () => void;
 
-  begin: (source: string) => void;
+  begin: (source: string, range: SelectionRange) => void;
   appendDelta: (delta: string) => void;
   succeed: (meta: StreamMeta | null) => void;
   fail: (error: AIError) => void;
@@ -47,6 +48,7 @@ const initialState = {
   error: null,
   meta: null,
   source: "",
+  sourceRange: null,
   mode: "improve" as AssistMode,
 };
 
@@ -75,29 +77,32 @@ export const useAssistantStore = create<AssistantState>()((set, get) => ({
   setMode: (mode) => set({ mode }),
 
   insertResult: () => {
-    const { documentText, selection, result } = get();
+    const { documentText, selection, result, sourceRange } = get();
     if (!result) return;
 
-    const start = selection?.start ?? documentText.length;
-    const end = selection?.end ?? documentText.length;
+    const range = sourceRange ?? selection ?? { start: documentText.length, end: documentText.length };
+    const start = Math.max(0, Math.min(range.start, documentText.length));
+    const end = Math.max(start, Math.min(range.end, documentText.length));
     const nextText = `${documentText.slice(0, start)}${result}${documentText.slice(end)}`;
 
     set({
       documentText: nextText,
       selection: { start, end: start },
+      sourceRange: null,
       caretRequest: start + result.length,
     });
   },
 
   clearCaretRequest: () => set({ caretRequest: null }),
 
-  begin: (source) =>
+  begin: (source, range) =>
     set({
       status: "loading",
       result: "",
       error: null,
       meta: null,
       source,
+      sourceRange: range,
     }),
 
   appendDelta: (delta) =>

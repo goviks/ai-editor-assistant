@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -8,9 +8,13 @@ import { EditorCard } from "@/components/editor/EditorCard";
 import { useAIStream } from "@/lib/hooks/use-ai-stream";
 import { useAssistantStore } from "@/lib/store/assistant-store";
 
+const DRAFT_KEY = "ai-editor:draft";
+
 export function Workspace() {
   const status = useAssistantStore((state) => state.status);
   const insertResult = useAssistantStore((state) => state.insertResult);
+  const documentText = useAssistantStore((state) => state.documentText);
+  const setDocumentText = useAssistantStore((state) => state.setDocumentText);
 
   const { run, cancel, retry } = useAIStream();
   const [panelOpen, setPanelOpen] = useState(false);
@@ -38,6 +42,18 @@ export function Workspace() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isBusy, cancel]);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(DRAFT_KEY);
+    if (saved && saved.trim()) setDocumentText(saved);
+  }, [setDocumentText]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      window.localStorage.setItem(DRAFT_KEY, documentText);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [documentText]);
 
   return (
     <>

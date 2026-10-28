@@ -8,6 +8,23 @@ export type AssistantStatus =
 
 export type AssistMode = "improve" | "shorten";
 
+export type CheckIssueType =
+  | "spelling"
+  | "punctuation"
+  | "grammar"
+  | "style"
+  | "typography"
+  | "other";
+
+export interface CheckIssue {
+  offset: number;
+  length: number;
+  message: string;
+  rule: string;
+  issueType: CheckIssueType;
+  replacements: string[];
+}
+
 export type AIErrorCode =
   | "missing_key"
   | "unauthorized"

@@ -1,7 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils/cn";
@@ -15,6 +15,36 @@ interface EditorCardProps {
   isBusy: boolean;
 }
 
+interface Segment {
+  text: string;
+  issue: boolean;
+  active: boolean;
+}
+
+function buildSegments(
+  text: string,
+  issues: Array<{ offset: number; length: number }>,
+  activeIndex: number,
+): Segment[] {
+  const sorted = [...issues].sort((a, b) => a.offset - b.offset);
+  const segments: Segment[] = [];
+  let cursor = 0;
+
+  for (const [index, issue] of sorted.entries()) {
+    const start = Math.max(cursor, Math.min(issue.offset, text.length));
+    const end = Math.max(start, Math.min(issue.offset + issue.length, text.length));
+
+    if (start > cursor) segments.push({ text: text.slice(cursor, start), issue: false, active: false });
+    if (end > start) {
+      segments.push({ text: text.slice(start, end), issue: true, active: index === activeIndex });
+    }
+    cursor = end;
+  }
+
+  if (cursor < text.length) segments.push({ text: text.slice(cursor), issue: false, active: false });
+  return segments;
+}
+
 export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
   const documentText = useAssistantStore((state) => state.documentText);
   const selection = useAssistantStore((state) => state.selection);
@@ -24,7 +54,17 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
   const clearCaretRequest = useAssistantStore((state) => state.clearCaretRequest);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const [isFocused, setIsFocused] = useState(false);
+
+  const issues = useAssistantStore((state) => state.issues);
+  const activeIssue = useAssistantStore((state) => state.activeIssue);
+  const highlightRange = useAssistantStore((state) => state.highlightRange);
+
+  const segments = useMemo(
+    () => buildSegments(documentText, issues, activeIssue),
+    [documentText, issues, activeIssue],
+  );
 
   useEffect(() => {
     if (caretRequest === null) return;
@@ -34,6 +74,19 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
     el.setSelectionRange(caretRequest, caretRequest);
     clearCaretRequest();
   }, [caretRequest, clearCaretRequest]);
+
+  useEffect(() => {
+    if (!highlightRange) return;
+    const el = textareaRef.current;
+    if (!el) return;
+
+    el.focus();
+    el.setSelectionRange(highlightRange.start, highlightRange.end);
+
+    const before = el.value.slice(0, highlightRange.start);
+    const line = before.split("\n").length - 1;
+    el.scrollTop = Math.max(0, line * 22 - el.clientHeight / 3);
+  }, [highlightRange]);
 
   const syncSelection = useCallback(
     (el: HTMLTextAreaElement) => {
@@ -97,9 +150,34 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
         {!documentText && !isFocused && (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 select-none overflow-hidden whitespace-pre-wrap p-3 text-sm leading-relaxed text-slate-500/90"
+            className="pointer-events-none absolute inset-0 z-10 select-none overflow-hidden p-3 text-sm leading-relaxed text-slate-500/90"
           >
             {GHOST_TEXT}
+          </div>
+        )}
+
+        {issues.length > 0 && (
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg p-3">
+            <div
+              ref={overlayRef}
+              className="whitespace-pre-wrap break-words text-sm leading-relaxed text-transparent"
+            >
+              {segments.map((segment, index) =>
+                segment.issue ? (
+                  <mark
+                    key={index}
+                    className={cn(
+                      "rounded-sm text-transparent",
+                      segment.active ? "bg-indigo-500/40" : "bg-red-500/25",
+                    )}
+                  >
+                    {segment.text}
+                  </mark>
+                ) : (
+                  <span key={index}>{segment.text}</span>
+                ),
+              )}
+            </div>
           </div>
         )}
 
@@ -109,6 +187,11 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
           onChange={handleChange}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
+          onScroll={(event) => {
+            if (overlayRef.current) {
+              overlayRef.current.style.transform = `translateY(-${event.currentTarget.scrollTop}px)`;
+            }
+          }}
           onSelect={(event) => syncSelection(event.currentTarget)}
           onKeyUp={(event) => syncSelection(event.currentTarget)}
           onMouseUp={(event) => syncSelection(event.currentTarget)}
@@ -118,8 +201,8 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
           placeholder=""
           spellCheck={false}
           className={cn(
-            "scrollbar-thin min-h-[300px] w-full flex-1 resize-none rounded-lg border border-slate-700/80 bg-slate-900/60 p-3",
-            "text-sm leading-relaxed text-slate-100 placeholder:text-slate-400",
+            "scrollbar-thin relative z-20 min-h-[300px] w-full flex-1 resize-none rounded-lg border bg-transparent p-3",
+            "border-slate-700/80 text-sm leading-relaxed text-slate-100 caret-indigo-300 placeholder:text-slate-400",
             "transition-colors focus:border-indigo-500 focus:outline-none",
             "focus-visible:ring-2 focus-visible:ring-indigo-500/60",
           )}

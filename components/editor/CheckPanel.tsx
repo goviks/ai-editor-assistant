@@ -1,37 +1,61 @@
 "use client";
 
-import { CheckCircle2, Download, Loader2, SpellCheck } from "lucide-react";
-import { useCallback, useState } from "react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Download, Loader2, SpellCheck } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { analyzeText } from "@/lib/ai/analysis";
 import { useAssistantStore } from "@/lib/store/assistant-store";
+import type { CheckIssue, CheckIssueType } from "@/types/ai";
 import { cn } from "@/lib/utils/cn";
 
-interface Issue {
-  offset: number;
-  length: number;
-  message: string;
-  rule: string;
-  replacements: string[];
-}
-
 type CheckSource = "engine" | "cache" | "local";
+type Filter = "all" | CheckIssueType;
+
+const FILTERS: Array<{ id: Filter; label: string }> = [
+  { id: "all", label: "Все" },
+  { id: "spelling", label: "Орфография" },
+  { id: "punctuation", label: "Пунктуация" },
+  { id: "grammar", label: "Грамматика" },
+  { id: "style", label: "Стиль" },
+];
+
+function isSafe(issue: CheckIssue): boolean {
+  return issue.replacements.length === 1;
+}
 
 export function CheckPanel() {
   const documentText = useAssistantStore((state) => state.documentText);
   const setDocumentText = useAssistantStore((state) => state.setDocumentText);
+  const issues = useAssistantStore((state) => state.issues);
+  const activeIssue = useAssistantStore((state) => state.activeIssue);
+  const setIssues = useAssistantStore((state) => state.setIssues);
+  const focusIssue = useAssistantStore((state) => state.focusIssue);
+  const applyIssue = useAssistantStore((state) => state.applyIssue);
 
-  const [issues, setIssues] = useState<Issue[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<CheckSource | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [applied, setApplied] = useState(0);
+
+  const words = useMemo(() => analyzeText(documentText).words, [documentText]);
+  const perHundred = words ? Math.round((issues.length / words) * 100) : 0;
+
+  const visible = useMemo(
+    () => (filter === "all" ? issues : issues.filter((issue) => issue.issueType === filter)),
+    [issues, filter],
+  );
+
+  const safeCount = useMemo(() => issues.filter(isSafe).length, [issues]);
 
   const runCheck = useCallback(async () => {
     if (!documentText.trim()) return;
 
     setStatus("loading");
     setError(null);
+    setApplied(0);
 
     try {
       const response = await fetch("/api/check", {
@@ -45,7 +69,7 @@ export function CheckPanel() {
         const minutes = Math.max(1, Math.ceil((data.retryAfterSeconds ?? 60) / 60));
         setStatus("error");
         setRemaining(0);
-        setError(`Лимит бесплатных проверок исчерпан. Следующая — через ${minutes} мин.`);
+        setError(`Лимит проверок исчерпан. Следующая — через ${minutes} мин.`);
         return;
       }
 
@@ -60,7 +84,7 @@ export function CheckPanel() {
       }
 
       const data = (await response.json()) as {
-        matches?: Issue[];
+        matches?: CheckIssue[];
         source?: CheckSource;
         remaining?: number;
       };
@@ -68,37 +92,37 @@ export function CheckPanel() {
       setIssues(data.matches ?? []);
       setSource(data.source ?? "engine");
       setRemaining(typeof data.remaining === "number" ? data.remaining : null);
+      setFilter("all");
       setStatus("done");
     } catch {
       setStatus("error");
       setError("Не удалось связаться с сервисом проверки.");
     }
-  }, [documentText]);
+  }, [documentText, setIssues]);
 
-  const applyReplacement = useCallback(
-    (issue: Issue, replacement: string) => {
-      const next =
-        documentText.slice(0, issue.offset) + replacement + documentText.slice(issue.offset + issue.length);
-      setDocumentText(next);
+  const applyAllSafe = useCallback(() => {
+    const safe = issues.filter(isSafe);
+    if (!safe.length) return;
 
-      const delta = replacement.length - issue.length;
-      setIssues((current) =>
-        current
-          .filter((item) => item.offset !== issue.offset)
-          .map((item) =>
-            item.offset > issue.offset ? { ...item, offset: item.offset + delta } : item,
-          ),
-      );
-    },
-    [documentText, setDocumentText],
-  );
+    let text = documentText;
+    for (const issue of [...safe].sort((a, b) => b.offset - a.offset)) {
+      const replacement = issue.replacements[0] ?? "";
+      text = text.slice(0, issue.offset) + replacement + text.slice(issue.offset + issue.length);
+    }
+
+    setDocumentText(text);
+    setApplied(safe.length);
+    setStatus("idle");
+    setSource(null);
+  }, [documentText, issues, setDocumentText]);
 
   const reset = useCallback(() => {
     setIssues([]);
     setStatus("idle");
     setError(null);
     setSource(null);
-  }, []);
+    setApplied(0);
+  }, [setIssues]);
 
   const download = useCallback(() => {
     const blob = new Blob([documentText], { type: "text/plain;charset=utf-8" });
@@ -110,33 +134,40 @@ export function CheckPanel() {
     URL.revokeObjectURL(url);
   }, [documentText]);
 
+  const activeInVisible = visible.findIndex((issue) => issue === issues[activeIssue]);
+
+  const step = (direction: 1 | -1) => {
+    if (!visible.length) return;
+    const next = (activeInVisible + direction + visible.length) % visible.length;
+    const target = visible[next];
+    const targetIndex = issues.findIndex((issue) => issue === target);
+    if (targetIndex >= 0) focusIssue(targetIndex);
+  };
+
   const subtitle =
-    status === "done"
-      ? issues.length === 0
-        ? "Ошибок не найдено"
-        : `Найдено замечаний: ${issues.length}${source === "local" ? " · локальные правила" : ""}`
-      : status === "loading"
-        ? "Проверяю текст…"
-        : "Найдите ошибки и примените исправление в один клик";
+    applied > 0
+      ? `Применено правок: ${applied}. Запустите проверку снова, чтобы увидеть остальные`
+      : status === "done"
+        ? issues.length === 0
+          ? "Ошибок не найдено"
+          : `Найдено: ${issues.length} · ${perHundred} на 100 слов${
+              source === "local" ? " · локальные правила" : ""
+            }`
+        : status === "loading"
+          ? "Проверяю текст…"
+          : "Найдите ошибки и примените исправление в один клик";
 
   return (
-    <section
-      aria-label="Проверка текста"
-      className="rounded-xl border border-slate-700 bg-slate-800 p-4"
-    >
+    <section aria-label="Проверка текста" className="rounded-xl border border-slate-700 bg-slate-800 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-slate-100">
-            Проверка орфографии и грамматики
-          </h2>
+          <h2 className="text-sm font-semibold text-slate-100">Проверка орфографии и грамматики</h2>
           <p className="text-xs text-slate-400">{subtitle}</p>
         </div>
 
         <div className="flex items-center gap-2">
           {remaining !== null && (
-            <span className="text-[11px] text-slate-500">
-              осталось {remaining} проверок
-            </span>
+            <span className="text-[11px] text-slate-500">осталось {remaining} проверок</span>
           )}
 
           <Button
@@ -188,38 +219,109 @@ export function CheckPanel() {
       )}
 
       {issues.length > 0 && (
-        <ul className="mt-3 flex max-h-[260px] flex-col gap-2 overflow-y-auto scrollbar-thin">
-          {issues.map((issue) => (
-            <li
-              key={`${issue.offset}-${issue.rule}`}
-              className="rounded-lg border border-slate-700/70 bg-slate-900/50 px-3 py-2"
-            >
-              <p className="text-xs text-slate-200">
-                <span className="font-medium text-amber-300">
-                  {documentText.slice(issue.offset, issue.offset + issue.length)}
-                </span>{" "}
-                — {issue.message}
-              </p>
-              {issue.replacements.length > 0 && (
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {issue.replacements.map((replacement) => (
-                    <button
-                      key={replacement}
-                      type="button"
-                      onClick={() => applyReplacement(issue, replacement)}
-                      className={cn(
-                        "rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-200",
-                        "transition-colors hover:bg-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
-                      )}
-                    >
-                      {replacement}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            {FILTERS.map((item) => {
+              const count =
+                item.id === "all"
+                  ? issues.length
+                  : issues.filter((issue) => issue.issueType === item.id).length;
+              if (count === 0 && item.id !== "all") return null;
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setFilter(item.id)}
+                  className={cn(
+                    "rounded-full border px-2.5 py-0.5 text-[11px] transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
+                    filter === item.id
+                      ? "border-indigo-400/60 bg-indigo-500/20 text-indigo-200"
+                      : "border-slate-700 text-slate-400 hover:text-slate-200",
+                  )}
+                >
+                  {item.label} · {count}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => step(-1)}
+                aria-label="Предыдущая ошибка"
+                className="rounded-md border border-slate-700 p-1 text-slate-400 transition-colors hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+              <span className="text-[11px] text-slate-400">
+                {activeInVisible >= 0 ? activeInVisible + 1 : 1} из {visible.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => step(1)}
+                aria-label="Следующая ошибка"
+                className="rounded-md border border-slate-700 p-1 text-slate-400 transition-colors hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              >
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            </div>
+
+            {safeCount > 0 && (
+              <Button variant="link" size="sm" onClick={applyAllSafe}>
+                Применить безопасные · {safeCount}
+              </Button>
+            )}
+          </div>
+
+          <ul className="mt-2 flex max-h-[260px] flex-col gap-2 overflow-y-auto scrollbar-thin">
+            {visible.map((issue) => {
+              const index = issues.findIndex((item) => item === issue);
+              return (
+                <li
+                  key={`${issue.offset}-${issue.rule}`}
+                  onClick={() => focusIssue(index)}
+                  className={cn(
+                    "cursor-pointer rounded-lg border px-3 py-2 transition-colors",
+                    index === activeIssue
+                      ? "border-indigo-400/50 bg-indigo-500/10"
+                      : "border-slate-700/70 bg-slate-900/50 hover:border-slate-600",
+                  )}
+                >
+                  <p className="text-xs text-slate-200">
+                    <span className="font-medium text-amber-300">
+                      {documentText.slice(issue.offset, issue.offset + issue.length)}
+                    </span>{" "}
+                    — {issue.message}
+                  </p>
+                  {issue.replacements.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {issue.replacements.map((replacement) => (
+                        <button
+                          key={replacement}
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            applyIssue(index, replacement);
+                          }}
+                          className={cn(
+                            "rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-200",
+                            "transition-colors hover:bg-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
+                          )}
+                        >
+                          {replacement}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
     </section>
   );

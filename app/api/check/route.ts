@@ -1,3 +1,4 @@
+import type { CheckIssue, CheckIssueType } from "@/types/ai";
 import type { NextRequest } from "next/server";
 
 import { localIssues } from "@/lib/ai/glavred";
@@ -16,16 +17,38 @@ interface LanguageToolMatch {
   offset: number;
   length: number;
   message: string;
-  rule?: { id?: string };
+  rule?: { id?: string; issueType?: string };
   replacements?: Array<{ value: string }>;
 }
 
-interface CheckIssue {
-  offset: number;
-  length: number;
-  message: string;
-  rule: string;
-  replacements: string[];
+function toIssueType(issueType: string | undefined, message: string): CheckIssueType {
+  switch (issueType) {
+    case "misspelling":
+      return "spelling";
+    case "typographical":
+    case "typography":
+    case "whitespace":
+    case "casing":
+    case "formatting":
+      return "typography";
+    case "grammar":
+    case "duplication":
+      return "grammar";
+    case "style":
+      return "style";
+    case "punctuation":
+      return "punctuation";
+    default:
+      break;
+  }
+
+  const lower = message.toLowerCase();
+  if (lower.includes("орфограф") || lower.includes("опечат")) return "spelling";
+  if (lower.includes("пунктуац") || lower.includes("запят")) return "punctuation";
+  if (lower.includes("грамматик") || lower.includes("падеж") || lower.includes("согласов")) {
+    return "grammar";
+  }
+  return "other";
 }
 
 const cache = new Map<string, { expiresAt: number; issues: CheckIssue[] }>();
@@ -121,6 +144,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       length: match.length,
       message: match.message,
       rule: match.rule?.id ?? "",
+      issueType: toIssueType(match.rule?.issueType, match.message),
       replacements: (match.replacements ?? []).slice(0, 3).map((item) => item.value),
     }));
 
@@ -128,7 +152,15 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     return Response.json({ matches: issues, source: "engine", remaining: limit.remaining });
   } catch {
-    const fallback = localIssues(text);
+    const fallback: CheckIssue[] = localIssues(text).map((issue) => ({
+      offset: issue.offset,
+      length: issue.length,
+      message: issue.message,
+      rule: issue.rule,
+      issueType: "style",
+      replacements: issue.replacements,
+    }));
+
     return Response.json({ matches: fallback, source: "local", remaining: limit.remaining });
   }
 }

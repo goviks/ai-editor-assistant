@@ -2,7 +2,13 @@
 
 import { create } from "zustand";
 
-import type { AIError, AssistMode, AssistantStatus, StreamMeta } from "@/types/ai";
+import type {
+  AIError,
+  AssistMode,
+  AssistantStatus,
+  CheckIssue,
+  StreamMeta,
+} from "@/types/ai";
 
 export interface SelectionRange {
   start: number;
@@ -22,12 +28,20 @@ interface AssistantState {
   sourceRange: SelectionRange | null;
   mode: AssistMode;
 
+  issues: CheckIssue[];
+  activeIssue: number;
+  highlightRange: SelectionRange | null;
+
   setDocumentText: (text: string) => void;
   setSelection: (selection: SelectionRange | null) => void;
   setMode: (mode: AssistMode) => void;
   insertResult: () => void;
   clearCaretRequest: () => void;
 
+  setIssues: (issues: CheckIssue[]) => void;
+  focusIssue: (index: number) => void;
+  applyIssue: (index: number, replacement: string) => void;
+  clearHighlight: () => void;
   begin: (source: string, range: SelectionRange) => void;
   appendDelta: (delta: string) => void;
   succeed: (meta: StreamMeta | null) => void;
@@ -47,6 +61,9 @@ const initialState = {
   source: "",
   sourceRange: null,
   mode: "improve" as AssistMode,
+  issues: [] as CheckIssue[],
+  activeIssue: 0,
+  highlightRange: null,
 };
 
 export function getSelectedText(
@@ -66,12 +83,67 @@ export const useAssistantStore = create<AssistantState>()((set, get) => ({
     const { selection } = get();
     const nextSelection =
       selection && selection.end <= text.length ? selection : null;
-    set({ documentText: text, selection: nextSelection });
+    set({
+      documentText: text,
+      selection: nextSelection,
+      issues: [],
+      activeIssue: 0,
+      highlightRange: null,
+    });
   },
 
   setSelection: (selection) => set({ selection }),
 
   setMode: (mode) => set({ mode }),
+
+  setIssues: (issues) => {
+    const first = issues[0];
+    set({
+      issues,
+      activeIssue: 0,
+      highlightRange: first
+        ? { start: first.offset, end: first.offset + first.length }
+        : null,
+    });
+  },
+
+  focusIssue: (index) => {
+    const issue = get().issues[index];
+    if (!issue) return;
+    set({
+      activeIssue: index,
+      highlightRange: { start: issue.offset, end: issue.offset + issue.length },
+    });
+  },
+
+  applyIssue: (index, replacement) => {
+    const { issues, documentText, activeIssue } = get();
+    const issue = issues[index];
+    if (!issue) return;
+
+    const nextText =
+      documentText.slice(0, issue.offset) + replacement + documentText.slice(issue.offset + issue.length);
+    const delta = replacement.length - issue.length;
+
+    const remaining = issues
+      .filter((_, position) => position !== index)
+      .map((item) => (item.offset > issue.offset ? { ...item, offset: item.offset + delta } : item));
+
+    const nextIndex = Math.min(activeIssue, Math.max(0, remaining.length - 1));
+    const target = remaining[nextIndex];
+
+    set({
+      documentText: nextText,
+      issues: remaining,
+      activeIssue: nextIndex,
+      highlightRange: target
+        ? { start: target.offset, end: target.offset + target.length }
+        : null,
+      selection: { start: issue.offset, end: issue.offset },
+    });
+  },
+
+  clearHighlight: () => set({ highlightRange: null }),
 
   insertResult: () => {
     const { documentText, selection, result, sourceRange } = get();

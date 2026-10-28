@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { analyzeText } from "@/lib/ai/analysis";
+import { buildDocx } from "@/lib/utils/docx";
 import { useAssistantStore } from "@/lib/store/assistant-store";
 import type { CheckIssue, CheckIssueType } from "@/types/ai";
 import { cn } from "@/lib/utils/cn";
@@ -133,12 +134,25 @@ export function CheckPanel() {
     setApplied(0);
   }, [setIssues]);
 
-  const download = useCallback(() => {
+  const downloadTxt = useCallback(() => {
     const blob = new Blob([documentText], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     link.download = "text.txt";
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [documentText]);
+
+  const downloadDocx = useCallback(() => {
+    const bytes = buildDocx(documentText);
+    const blob = new Blob([bytes.buffer as ArrayBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "document.docx";
     link.click();
     URL.revokeObjectURL(url);
   }, [documentText]);
@@ -182,11 +196,21 @@ export function CheckPanel() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={download}
+            onClick={downloadTxt}
             disabled={!documentText.trim()}
             icon={<Download className="h-3.5 w-3.5" aria-hidden="true" />}
           >
-            Скачать
+            TXT
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={downloadDocx}
+            disabled={!documentText.trim()}
+            icon={<Download className="h-3.5 w-3.5" aria-hidden="true" />}
+          >
+            DOCX
           </Button>
 
           <Button

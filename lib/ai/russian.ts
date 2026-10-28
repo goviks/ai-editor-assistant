@@ -1,5 +1,6 @@
 import { analyzeText } from "./analysis";
 import { cleanWithRules, compressWithRules, WATER_WORDS } from "./glavred";
+import { SYNONYMS } from "./synonyms";
 
 const WORD_END = "(?![а-яёa-z])";
 
@@ -256,41 +257,6 @@ function removePhrases(text: string, phrases: string[]): string {
 function dedupeWords(text: string): string {
   return text.replace(/(?<![а-яёa-z])([а-яёa-z]+)(\s+\1(?![а-яёa-z]))+/giu, "$1");
 }
-
-const SYNONYMS: Record<string, string> = {
-  задача: "вопрос",
-  задачи: "вопросы",
-  задач: "вопросов",
-  продукт: "решение",
-  продукта: "решения",
-  текст: "материал",
-  текста: "материала",
-  работа: "дело",
-  работы: "дела",
-  клиент: "заказчик",
-  клиента: "заказчика",
-  проект: "задача",
-  проекта: "задачи",
-  команда: "группа",
-  команды: "группы",
-  время: "срок",
-  времена: "сроки",
-  компания: "фирма",
-  компании: "фирмы",
-  система: "схема",
-  системы: "схемы",
-  данные: "сведения",
-  процесс: "ход",
-  процесса: "хода",
-  результат: "итог",
-  результата: "итога",
-  качество: "уровень",
-  качества: "уровня",
-  услуга: "сервис",
-  услуги: "сервиса",
-  пользователь: "клиент",
-  пользователи: "клиенты",
-};
 
 function reduceWater(text: string, targetPercent: number): string {
   let current = text;

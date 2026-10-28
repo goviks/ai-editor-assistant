@@ -182,6 +182,10 @@ export function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
+export const WATER_WORDS: string[] = RULES.filter(
+  (rule) => rule.kind === "вода" || rule.kind === "усилитель",
+).map((rule) => rule.from);
+
 export function findIssues(text: string): Issue[] {
   const issues: Issue[] = [];
 

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { AssistantPanel } from "@/components/assistant/AssistantPanel";
 import { EditorCard } from "@/components/editor/EditorCard";
+import { TextMetrics } from "@/components/editor/TextMetrics";
 import { useAIStream } from "@/lib/hooks/use-ai-stream";
 import { useAssistantStore } from "@/lib/store/assistant-store";
 import type { AssistMode } from "@/types/ai";
@@ -71,7 +72,10 @@ export function Workspace() {
   return (
     <>
       <div className="flex flex-col gap-6 pb-24 md:flex-row md:items-start md:pb-0">
-        <EditorCard onImprove={handleImprove} isBusy={isBusy} />
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <EditorCard onImprove={handleImprove} isBusy={isBusy} />
+          <TextMetrics />
+        </div>
 
         <AssistantPanel
           open={panelOpen}

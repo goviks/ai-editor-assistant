@@ -42,17 +42,11 @@ export function analyzeText(text: string): TextMetrics {
   const syllables = words.reduce((sum, word) => sum + countSyllables(word), 0);
   const avgSentenceLength = wordCount / sentenceCount;
   const avgSyllables = wordCount ? syllables / wordCount : 0;
-  const longWords = words.filter((word) => countSyllables(word) >= 3).length;
 
   const readability = wordCount
     ? Math.max(
         1,
-        Math.min(
-          100,
-          Math.round(
-            100 - avgSentenceLength * 2.2 - (longWords / wordCount) * 100 * 0.5 - (avgSyllables - 1) * 6,
-          ),
-        ),
+        Math.min(100, Math.round(100 - avgSentenceLength * 3.2 - (avgSyllables - 1) * 6)),
       )
     : 0;
 
@@ -71,7 +65,9 @@ export function analyzeText(text: string): TextMetrics {
     .map(([word, count]) => ({ word, count }));
 
   const topCount = topWords[0]?.count ?? 0;
-  const spamPercent = wordCount ? Math.round((topCount / wordCount) * 100) : 0;
+  const spamPercent = wordCount
+    ? Math.max(0, Math.round(((topCount - 1) / wordCount) * 100))
+    : 0;
 
   const label =
     readability >= 70

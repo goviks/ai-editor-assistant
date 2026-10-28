@@ -1,4 +1,5 @@
-import { cleanWithRules, compressWithRules } from "./glavred";
+import { analyzeText } from "./analysis";
+import { cleanWithRules, compressWithRules, WATER_WORDS } from "./glavred";
 
 const WORD_END = "(?![а-яёa-z])";
 
@@ -256,6 +257,143 @@ function dedupeWords(text: string): string {
   return text.replace(/(?<![а-яёa-z])([а-яёa-z]+)(\s+\1(?![а-яёa-z]))+/giu, "$1");
 }
 
+const SYNONYMS: Record<string, string> = {
+  задача: "вопрос",
+  задачи: "вопросы",
+  задач: "вопросов",
+  продукт: "решение",
+  продукта: "решения",
+  текст: "материал",
+  текста: "материала",
+  работа: "дело",
+  работы: "дела",
+  клиент: "заказчик",
+  клиента: "заказчика",
+  проект: "задача",
+  проекта: "задачи",
+  команда: "группа",
+  команды: "группы",
+  время: "срок",
+  времена: "сроки",
+  компания: "фирма",
+  компании: "фирмы",
+  система: "схема",
+  системы: "схемы",
+  данные: "сведения",
+  процесс: "ход",
+  процесса: "хода",
+  результат: "итог",
+  результата: "итога",
+  качество: "уровень",
+  качества: "уровня",
+  услуга: "сервис",
+  услуги: "сервиса",
+  пользователь: "клиент",
+  пользователи: "клиенты",
+};
+
+function reduceWater(text: string, targetPercent: number): string {
+  let current = text;
+  const waterWords = [...FILLERS, ...INTRODUCTORY, ...WATER_WORDS];
+
+  for (let i = 0; i < 6; i += 1) {
+    if (analyzeText(current).waterPercent <= targetPercent) break;
+    const next = tidy(removePhrases(current, waterWords));
+    if (next === current) break;
+    current = next;
+  }
+
+  return current;
+}
+
+function reduceRepetition(text: string, targetPercent: number): string {
+  let current = text;
+
+  for (let i = 0; i < 6; i += 1) {
+    const metrics = analyzeText(current);
+    if (metrics.spamPercent <= targetPercent) break;
+
+    const top = metrics.topWords[0];
+    if (!top || top.count < 2) break;
+
+    const synonym = SYNONYMS[top.word];
+    if (synonym) {
+      let seen = 0;
+      const pattern = new RegExp(`(?<![а-яёa-z])${escapeRegExp(top.word)}(?![а-яёa-z])`, "giu");
+      current = current.replace(pattern, (match) => {
+        seen += 1;
+        return seen === 1 ? match : synonym;
+      });
+      continue;
+    }
+
+    const sentences = splitSentences(current);
+    if (sentences.length < 2) break;
+
+    const redundant = sentences.map((sentence) => sentence.toLowerCase().includes(top.word)).lastIndexOf(true);
+    if (redundant <= 0) break;
+
+    sentences.splice(redundant, 1);
+    current = sentences.join(" ");
+  }
+
+  return current;
+}
+
+function splitLongSentences(text: string): string {
+  const sentences = splitSentences(text);
+  const result: string[] = [];
+
+  for (const sentence of sentences) {
+    const core = sentence.replace(/[.!?…]+$/, "");
+    const count = core.split(/\s+/).filter(Boolean).length;
+    const comma = core.indexOf(", ");
+
+    if (count <= 9 || comma === -1) {
+      result.push(sentence);
+      continue;
+    }
+
+    const first = core.slice(0, comma).trim();
+    const second = core.slice(comma + 2).trim();
+
+    if (first.split(/\s+/).length < 3 || second.split(/\s+/).length < 3) {
+      result.push(sentence);
+      continue;
+    }
+
+    result.push(`${first}.`, `${second.charAt(0).toUpperCase()}${second.slice(1)}`);
+  }
+
+  return result.join(" ");
+}
+
+function raiseReadability(text: string, target: number): string {
+  let current = text;
+
+  for (let i = 0; i < 4; i += 1) {
+    if (analyzeText(current).readability > target) break;
+    const next = splitLongSentences(current);
+    if (next === current) break;
+    current = next;
+  }
+
+  return current;
+}
+
+function enforceTargets(
+  text: string,
+  waterTarget: number,
+  spamTarget: number,
+  readabilityTarget: number,
+): string {
+  let result = text;
+  result = reduceWater(result, waterTarget);
+  result = reduceRepetition(result, spamTarget);
+  if (readabilityTarget > 0) result = raiseReadability(result, readabilityTarget);
+  return finalize(capitalizeSentences(tidy(result)));
+}
+
 export function fixOrthography(text: string): string {
   let result = text;
   result = applyPairs(result, ORTHOGRAPHY, false);
@@ -275,7 +413,7 @@ export function improveText(text: string): string {
   result = normalizeQuotes(result);
   result = normalizeDashes(result);
   result = addCommas(result);
-  return finalize(capitalizeSentences(result));
+  return enforceTargets(result, 10, 10, 70);
 }
 
 function dropIntroductory(text: string): string {
@@ -354,5 +492,5 @@ export function shortenText(text: string): string {
     result = trimTail(result, minWords);
   }
 
-  return finalize(capitalizeSentences(result));
+  return enforceTargets(result, 5, 5, 0);
 }

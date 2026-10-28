@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils/cn";
+import { analyzeText } from "@/lib/ai/analysis";
 import { countWords } from "@/lib/utils/text";
 import { scoreText } from "@/lib/ai/glavred";
 import { useAssistantStore } from "@/lib/store/assistant-store";
@@ -167,12 +168,19 @@ export function AssistantPanel({
       </p>
 
       {status === "success" && meta && (
-        <p className="text-[11px] text-slate-400">
-          {meta.model} · {(meta.durationMs / 1000).toFixed(1)} с · слов:{" "}
-          {countWords(source)} → {countWords(result)} · Главред: {scoreText(source)} →{" "}
-          {scoreText(result)}
-          {meta.completionTokens ? ` · ${meta.completionTokens} токенов` : ""}
-        </p>
+        <div className="space-y-0.5 text-[11px] text-slate-400">
+          <p>
+            {meta.model} · {(meta.durationMs / 1000).toFixed(1)} с · слов:{" "}
+            {countWords(source)} → {countWords(result)}
+            {meta.completionTokens ? ` · ${meta.completionTokens} токенов` : ""}
+          </p>
+          <p>
+            вода {analyzeText(source).waterPercent}% → {analyzeText(result).waterPercent}% ·
+            тошнота {analyzeText(source).spamPercent}% → {analyzeText(result).spamPercent}% ·
+            читаемость {analyzeText(source).readability} → {analyzeText(result).readability} ·
+            Главред {scoreText(source)} → {scoreText(result)}
+          </p>
+        </div>
       )}
 
       <div className="flex flex-wrap items-center gap-2">

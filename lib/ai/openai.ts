@@ -1,6 +1,23 @@
 import type { ChatMessage } from "@/lib/ai/prompt";
 
-export const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+const DEFAULT_BASE_URL = "https://api.openai.com/v1";
+
+export function getCompletionUrl(baseUrl = process.env.OPENAI_BASE_URL): string {
+  const configured = (baseUrl?.trim() || DEFAULT_BASE_URL).replace(/\/+$/, "");
+  const url = new URL(configured);
+  const localHost = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+
+  if (url.protocol !== "https:" && !(localHost && url.protocol === "http:")) {
+    throw new Error("OPENAI_BASE_URL должен использовать HTTPS (HTTP допустим только для localhost).");
+  }
+  if (url.username || url.password || url.search || url.hash) {
+    throw new Error("OPENAI_BASE_URL должен содержать только адрес API без учётных данных и параметров.");
+  }
+
+  return url.pathname.replace(/\/+$/, "").endsWith("/chat/completions")
+    ? url.toString()
+    : `${configured}/chat/completions`;
+}
 
 export class UpstreamError extends Error {
   readonly status: number;
@@ -29,7 +46,13 @@ export async function streamChatCompletion({
   signal,
   onDelta,
 }: StreamOptions): Promise<{ completionTokens?: number }> {
-  const response = await fetch(OPENAI_URL, {
+  const configuredMaxTokens = Number.parseInt(process.env.AI_MAX_OUTPUT_TOKENS ?? "2400", 10);
+  const maxTokens =
+    Number.isInteger(configuredMaxTokens) && configuredMaxTokens >= 256 && configuredMaxTokens <= 8192
+      ? configuredMaxTokens
+      : 2400;
+
+  const response = await fetch(getCompletionUrl(), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -40,8 +63,8 @@ export async function streamChatCompletion({
       messages,
       stream: true,
       stream_options: { include_usage: true },
-      temperature: 0.6,
-      max_tokens: 800,
+      temperature: 0.3,
+      max_tokens: maxTokens,
     }),
     signal,
   });

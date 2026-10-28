@@ -4,7 +4,7 @@ import { streamMockCompletion } from "../lib/ai/mock.ts";
 import { createEventParser, encodeEvent } from "../lib/stream/ndjson.ts";
 
 const SAMPLE_TEXT =
-  "Привет, Ирина! Хочу обсудить лендинг. Мы хотим запустить его 14 ноября и надо чтобы к этому времени были готовы тексты, дизайн и аналитика.";
+  "Привет, Ирина! Хочу обсудить лендинг. Мы хотим запустить его 14 ноября и надо чтобы к этому времени были готовы тексты, дизайн и аналитика. Для того чтобы успеть, команда заранее согласовала сроки.";
 
 function createRouteStream(mode, signal) {
   const encoder = new TextEncoder();

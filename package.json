@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "verify:stream": "node --experimental-strip-types scripts/verify-stream.mjs",
+    "verify:editing": "node --experimental-strip-types scripts/verify-editing.mjs",
     "e2e": "node scripts/e2e-local.mjs",
     "screenshots": "node scripts/capture-states.mjs",
     "lighthouse": "lighthouse http://localhost:3000 --only-categories=performance,accessibility,best-practices,seo --output=json --output=html --output-path=docs/lighthouse --chrome-flags=\"--headless=new --no-sandbox\" --quiet"

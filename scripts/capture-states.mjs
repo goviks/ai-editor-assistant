@@ -96,14 +96,28 @@ const desktopViewport = {
   mobile: false,
 };
 
+const SAMPLE_TEXT =
+  "Привет, Ирина! Хочу обсудить лендинг. Мы хотим запустить его 14 ноября и надо чтобы к этому времени были готовы тексты, дизайн и аналитика. По текстам жду от тебя правки до пятницы. Дизайн почти готов, осталось согласовать главный экран.";
+
+async function typeSample() {
+  await evaluate(`document.querySelector('textarea').focus()`);
+  await sleep(200);
+  await send("Input.insertText", { text: SAMPLE_TEXT });
+  await sleep(300);
+}
+
 await send("Page.enable");
 await send("Runtime.enable");
 
 await send("Emulation.setDeviceMetricsOverride", desktopViewport);
 
 await goto(BASE);
+await evaluate("localStorage.clear(); true");
+await send("Page.reload", { ignoreCache: true });
+await sleep(2500);
 await shot("01-idle.png");
 
+await typeSample();
 await evaluate(selectAndRun);
 await sleep(250);
 await shot("02-loading.png");
@@ -127,6 +141,7 @@ await send("Emulation.setDeviceMetricsOverride", {
   mobile: true,
 });
 await goto(BASE);
+await typeSample();
 await evaluate(selectAndRun);
 await sleep(4600);
 await shot("06-mobile.png");

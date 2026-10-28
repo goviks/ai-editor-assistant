@@ -36,11 +36,8 @@ interface AssistantState {
   reset: () => void;
 }
 
-const SAMPLE_DRAFT =
-  "Привет, Ирина! Хочу обсудить лендинг. Мы хотим запустить его 14 ноября и надо чтобы к этому времени были готовы тексты, дизайн и аналитика. По текстам жду от тебя правки до пятницы. Дизайн почти готов, осталось согласовать главный экран. Аналитику настроим на следующей неделе. Если сроки не устраивают, скажи что сдвинуть.";
-
 const initialState = {
-  documentText: SAMPLE_DRAFT,
+  documentText: "",
   selection: null,
   caretRequest: null,
   status: "idle" as AssistantStatus,

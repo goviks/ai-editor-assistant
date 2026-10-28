@@ -21,10 +21,10 @@
 
 | Ошибка | Мобильный вид |
 | --- | --- |
-| ![Ошибка](docs/screenshots/07-error.png) | <img src="docs/screenshots/06-mobile.png" width="320" alt="Мобильная шторка" /> |
+| Красный блок с подсказкой и кнопкой «Повторить» (см. раздел «Ошибки») | <img src="docs/screenshots/06-mobile.png" width="320" alt="Мобильная шторка" /> |
 
 Все скриншоты сняты реальным headless-браузером через CDP
-(`scripts/capture-states.mjs`), а не собраны в редакторе.
+(`scripts/capture-states.mjs`) с прод-сборки на Vercel, а не собраны в редакторе.
 
 ---
 

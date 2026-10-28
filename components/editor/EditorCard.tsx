@@ -1,11 +1,14 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils/cn";
 import { useAssistantStore } from "@/lib/store/assistant-store";
+
+const GHOST_TEXT =
+  "Привет, Ирина! Хочу обсудить лендинг. Мы хотим запустить его 14 ноября и надо чтобы к этому времени были готовы тексты, дизайн и аналитика. По текстам жду от тебя правки до пятницы. Дизайн почти готов, осталось согласовать главный экран. Аналитику настроим на следующей неделе. Если сроки не устраивают, скажи что сдвинуть.";
 
 interface EditorCardProps {
   onImprove: () => void;
@@ -21,6 +24,7 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
   const clearCaretRequest = useAssistantStore((state) => state.clearCaretRequest);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isFocused, setIsFocused] = useState(false);
 
   useEffect(() => {
     if (caretRequest === null) return;
@@ -89,25 +93,38 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
         </p>
       </header>
 
-      <textarea
-        ref={textareaRef}
-        value={documentText}
-        onChange={handleChange}
-        onSelect={(event) => syncSelection(event.currentTarget)}
-        onKeyUp={(event) => syncSelection(event.currentTarget)}
-        onMouseUp={(event) => syncSelection(event.currentTarget)}
-        onKeyDown={handleKeyDown}
-        aria-label="Черновик заметки или письма"
-        aria-describedby="editor-hint"
-        placeholder="Напишите заметку или черновик письма, затем выделите фрагмент и нажмите «Улучшить с AI»…"
-        spellCheck={false}
-        className={cn(
-          "scrollbar-thin min-h-[300px] w-full flex-1 resize-none rounded-lg border border-slate-700/80 bg-slate-900/60 p-3",
-          "text-sm leading-relaxed text-slate-100 placeholder:text-slate-400",
-          "transition-colors focus:border-indigo-500 focus:outline-none",
-          "focus-visible:ring-2 focus-visible:ring-indigo-500/60",
+      <div className="relative flex flex-1 flex-col">
+        {!documentText && !isFocused && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 select-none overflow-hidden whitespace-pre-wrap p-3 text-sm leading-relaxed text-slate-500/90"
+          >
+            {GHOST_TEXT}
+          </div>
         )}
-      />
+
+        <textarea
+          ref={textareaRef}
+          value={documentText}
+          onChange={handleChange}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          onSelect={(event) => syncSelection(event.currentTarget)}
+          onKeyUp={(event) => syncSelection(event.currentTarget)}
+          onMouseUp={(event) => syncSelection(event.currentTarget)}
+          onKeyDown={handleKeyDown}
+          aria-label="Черновик заметки или письма"
+          aria-describedby="editor-hint"
+          placeholder=""
+          spellCheck={false}
+          className={cn(
+            "scrollbar-thin min-h-[300px] w-full flex-1 resize-none rounded-lg border border-slate-700/80 bg-slate-900/60 p-3",
+            "text-sm leading-relaxed text-slate-100 placeholder:text-slate-400",
+            "transition-colors focus:border-indigo-500 focus:outline-none",
+            "focus-visible:ring-2 focus-visible:ring-indigo-500/60",
+          )}
+        />
+      </div>
 
       <footer className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p id="editor-hint" className="text-xs text-slate-400">

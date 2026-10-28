@@ -110,7 +110,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         };
 
         if (useMock) {
-          await streamMockCompletion({ mode, signal: upstream.signal, onDelta });
+          await streamMockCompletion({ text, mode, signal: upstream.signal, onDelta });
         } else {
           const result = await streamChatCompletion({
             apiKey: apiKey as string,

@@ -8,7 +8,7 @@ import { EditorCard } from "@/components/editor/EditorCard";
 import { useAIStream } from "@/lib/hooks/use-ai-stream";
 import { useAssistantStore } from "@/lib/store/assistant-store";
 
-const DRAFT_KEY = "ai-editor:draft";
+const DRAFT_KEY = "ai-editor:draft:v2";
 
 export function Workspace() {
   const status = useAssistantStore((state) => state.status);
@@ -50,7 +50,11 @@ export function Workspace() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      window.localStorage.setItem(DRAFT_KEY, documentText);
+      if (documentText.trim()) {
+        window.localStorage.setItem(DRAFT_KEY, documentText);
+      } else {
+        window.localStorage.removeItem(DRAFT_KEY);
+      }
     }, 400);
     return () => clearTimeout(timer);
   }, [documentText]);

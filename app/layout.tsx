@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AI-редактор — ассистент со стримингом",
+  title: "AI-редактор — Denis Durnov",
   description:
-    "Портфолио-проект: AI-ассистент внутри текстового редактора. Стриминг токенов, отмена запроса, обработка ошибок и доступность.",
+    "Текстовый редактор с AI-ассистентом: стриминг ответа по токенам, отмена запроса, понятные ошибки и доступный интерфейс.",
 };
 
 export default function RootLayout({

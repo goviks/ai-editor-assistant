@@ -1,4 +1,4 @@
-import { WATER_WORDS } from "./glavred";
+import { WATER_WORDS } from "./glavred.ts";
 
 const VOWELS = /[аеёиоуыэюя]/giu;
 

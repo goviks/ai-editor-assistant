@@ -7,6 +7,10 @@
     color-scheme: dark;
   }
 
+  :root[data-theme="light"] {
+    color-scheme: light;
+  }
+
   html {
     -webkit-text-size-adjust: 100%;
   }
@@ -15,9 +19,53 @@
     @apply bg-slate-900 text-slate-200;
   }
 
+  :root[data-theme="light"] body {
+    @apply bg-slate-50 text-slate-800;
+  }
+
   ::selection {
     @apply bg-indigo-500/40 text-white;
   }
+}
+
+[data-theme="light"] .bg-slate-900,
+[data-theme="light"] .bg-slate-900\/40,
+[data-theme="light"] .bg-slate-900\/50,
+[data-theme="light"] .bg-slate-900\/60 {
+  background-color: #ffffff;
+}
+
+[data-theme="light"] .bg-slate-800,
+[data-theme="light"] .bg-slate-800\/60 {
+  background-color: #f1f5f9;
+}
+
+[data-theme="light"] .border-slate-700,
+[data-theme="light"] .border-slate-700\/70,
+[data-theme="light"] .border-slate-700\/80,
+[data-theme="light"] .border-slate-700\/60 {
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .text-slate-100,
+[data-theme="light"] .text-slate-200 {
+  color: #0f172a;
+}
+
+[data-theme="light"] .text-slate-300 {
+  color: #334155;
+}
+
+[data-theme="light"] .text-slate-400 {
+  color: #475569;
+}
+
+[data-theme="light"] .text-slate-500 {
+  color: #64748b;
+}
+
+[data-theme="light"] .hover\:bg-slate-900\/60:hover {
+  background-color: #e2e8f0;
 }
 
 @layer utilities {

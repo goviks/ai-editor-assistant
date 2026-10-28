@@ -6,6 +6,7 @@ import { streamChatCompletion, UpstreamError } from "@/lib/ai/openai";
 import { buildMessages, maxInputChars } from "@/lib/ai/prompt";
 import { createAIError, errorFromStatus, normalizeError } from "@/lib/errors";
 import { encodeEvent } from "@/lib/stream/ndjson";
+import { optionsResponse, withPagesCors } from "@/lib/server/cors";
 import type { AIError, StreamEvent } from "@/types/ai";
 
 export const runtime = "nodejs";
@@ -17,13 +18,16 @@ const UPSTREAM_TIMEOUT_MS = Number.parseInt(
   10,
 );
 
-function jsonError(error: AIError, status: number): Response {
-  return Response.json(
-    { error },
-    {
-      status,
-      headers: { "Cache-Control": "no-store" },
-    },
+function jsonError(request: NextRequest, error: AIError, status: number): Response {
+  return withPagesCors(
+    request,
+    Response.json(
+      { error },
+      {
+        status,
+        headers: { "Cache-Control": "no-store" },
+      },
+    ),
   );
 }
 
@@ -48,6 +52,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     payload = await request.json();
   } catch {
     return jsonError(
+      request,
       createAIError("bad_request", { message: "Тело запроса должно быть JSON." }),
       400,
     );
@@ -61,12 +66,13 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     return tooLong
       ? jsonError(
+          request,
           createAIError("payload_too_large", {
             message: `Фрагмент длиннее ${limit} символов (${(payload as { text: string }).text.length}).`,
           }),
           413,
         )
-      : jsonError(createAIError("bad_request"), 400);
+      : jsonError(request, createAIError("bad_request"), 400);
   }
 
   const { text, mode } = parsed.data;
@@ -74,7 +80,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   const useMock = !apiKey && process.env.AI_MOCK === "1";
 
   if (!apiKey && !useMock) {
-    return jsonError(createAIError("missing_key"), 500);
+    return jsonError(request, createAIError("missing_key"), 500);
   }
 
   const model = useMock ? "mock-editor" : (process.env.OPENAI_MODEL ?? "gpt-4o-mini");
@@ -158,12 +164,19 @@ export async function POST(request: NextRequest): Promise<Response> {
     },
   });
 
-  return new Response(stream, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/x-ndjson; charset=utf-8",
-      "Cache-Control": "no-store, no-transform",
-      "X-Accel-Buffering": "no",
-    },
-  });
+  return withPagesCors(
+    request,
+    new Response(stream, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/x-ndjson; charset=utf-8",
+        "Cache-Control": "no-store, no-transform",
+        "X-Accel-Buffering": "no",
+      },
+    }),
+  );
+}
+
+export function OPTIONS(request: NextRequest): Response {
+  return optionsResponse(request);
 }

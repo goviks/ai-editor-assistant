@@ -1,6 +1,6 @@
-import { analyzeText } from "./analysis";
-import { cleanWithRules, compressWithRules, WATER_WORDS } from "./glavred";
-import { SYNONYMS } from "./synonyms";
+import { analyzeText } from "./analysis.ts";
+import { cleanWithRules, compressWithRules, WATER_WORDS } from "./glavred.ts";
+import { SYNONYMS } from "./synonyms.ts";
 
 const WORD_END = "(?![а-яёa-z])";
 
@@ -444,6 +444,7 @@ export function shortenText(text: string): string {
         if (words(candidate) >= minWords) result = candidate;
         break;
       }
+
       result = candidate;
     }
   } else {

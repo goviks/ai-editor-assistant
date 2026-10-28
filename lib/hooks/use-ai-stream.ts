@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useRef } from "react";
 
 import { createAIError, errorFromStatus, normalizeError } from "@/lib/errors";
+import { apiUrl } from "@/lib/utils/api-url";
 import { createEventParser } from "@/lib/stream/ndjson";
 import { getSelectedText, useAssistantStore } from "@/lib/store/assistant-store";
 import type { AIError, AssistMode, ImproveErrorBody, ImproveRequest, StreamMeta } from "@/types/ai";
 
-const ENDPOINT = "/api/ai";
 const REQUEST_TIMEOUT_MS = 45_000;
 
 type AbortReason = "user" | "timeout" | null;
@@ -53,7 +53,7 @@ export function useAIStream() {
     const payload: ImproveRequest = { text, mode };
 
     try {
-      const response = await fetch(ENDPOINT, {
+      const response = await fetch(apiUrl("/api/ai"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

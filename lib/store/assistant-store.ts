@@ -22,16 +22,18 @@ export interface HistoryEntry {
   at: number;
 }
 
-const STRICT_TYPES = new Set(["spelling", "punctuation", "grammar", "typography"]);
+const ERROR_TYPES = new Set(["spelling", "punctuation", "grammar", "typography"]);
+const SOFT_TYPES = new Set(["spelling", "punctuation", "grammar"]);
 
 function filterIssues(
   issues: CheckIssue[],
-  strictness: "all" | "errors",
+  strictness: "soft" | "strict" | "errors",
   ignoredWords: string[],
   documentText: string,
 ): CheckIssue[] {
   return issues.filter((issue) => {
-    if (strictness === "errors" && !STRICT_TYPES.has(issue.issueType)) return false;
+    if (strictness === "errors" && !ERROR_TYPES.has(issue.issueType)) return false;
+    if (strictness === "soft" && !SOFT_TYPES.has(issue.issueType)) return false;
     const fragment = documentText
       .slice(issue.offset, issue.offset + issue.length)
       .toLowerCase()
@@ -58,7 +60,7 @@ interface AssistantState {
   activeIssue: number;
   highlightRange: SelectionRange | null;
   ignoredWords: string[];
-  strictness: "all" | "errors";
+  strictness: "soft" | "strict" | "errors";
   history: HistoryEntry[];
 
   setDocumentText: (text: string) => void;
@@ -74,7 +76,8 @@ interface AssistantState {
   setIgnoredWords: (words: string[]) => void;
   ignoreWord: (word: string) => void;
   removeIgnoredWord: (word: string) => void;
-  setStrictness: (strictness: "all" | "errors") => void;
+  setStrictness: (strictness: "soft" | "strict" | "errors") => void;
+  setHistory: (history: HistoryEntry[]) => void;
   pushHistory: (label: string) => void;
   restoreHistory: (id: string) => void;
   begin: (source: string, range: SelectionRange) => void;
@@ -101,7 +104,7 @@ const initialState = {
   activeIssue: 0,
   highlightRange: null,
   ignoredWords: [] as string[],
-  strictness: "all" as "all" | "errors",
+  strictness: "soft" as "soft" | "strict" | "errors",
   history: [] as HistoryEntry[],
 };
 
@@ -126,6 +129,7 @@ export const useAssistantStore = create<AssistantState>()((set, get) => ({
       documentText: text,
       selection: nextSelection,
       issues: [],
+      allIssues: [],
       activeIssue: 0,
       highlightRange: null,
     });
@@ -164,6 +168,8 @@ export const useAssistantStore = create<AssistantState>()((set, get) => ({
         : null,
     });
   },
+
+  setHistory: (history) => set({ history: history.slice(0, 20) }),
 
   pushHistory: (label) => {
     const { documentText, history } = get();
@@ -243,7 +249,7 @@ export const useAssistantStore = create<AssistantState>()((set, get) => ({
   },
 
   applyIssue: (index, replacement) => {
-    const { issues, documentText, activeIssue } = get();
+    const { issues, allIssues, documentText, activeIssue } = get();
     const issue = issues[index];
     if (!issue) return;
 
@@ -256,6 +262,9 @@ export const useAssistantStore = create<AssistantState>()((set, get) => ({
     const remaining = issues
       .filter((_, position) => position !== index)
       .map((item) => (item.offset > issue.offset ? { ...item, offset: item.offset + delta } : item));
+    const remainingAll = allIssues
+      .filter((item) => item !== issue)
+      .map((item) => (item.offset > issue.offset ? { ...item, offset: item.offset + delta } : item));
 
     const nextIndex = Math.min(activeIssue, Math.max(0, remaining.length - 1));
     const target = remaining[nextIndex];
@@ -263,6 +272,7 @@ export const useAssistantStore = create<AssistantState>()((set, get) => ({
     set({
       documentText: nextText,
       issues: remaining,
+      allIssues: remainingAll,
       activeIssue: nextIndex,
       highlightRange: target
         ? { start: target.offset, end: target.offset + target.length }

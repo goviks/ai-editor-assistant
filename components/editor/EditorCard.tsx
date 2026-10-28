@@ -135,6 +135,12 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
   const hasText = documentText.trim().length > 0;
   const canImprove = hasText && !isBusy;
 
+  const insertExample = () => {
+    useAssistantStore.getState().pushHistory("Перед вставкой примера");
+    setDocumentText(GHOST_TEXT);
+    setIsFocused(true);
+  };
+
   return (
     <section
       aria-labelledby="editor-heading"
@@ -160,7 +166,7 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
             Черновик
           </h2>
           <span className="rounded-full border border-slate-700 bg-slate-900/60 px-2 py-0.5 text-[11px] text-slate-400">
-            {words} слов · {documentText.length} симв.
+            {words} слов · {documentText.length.toLocaleString("ru-RU")} / 50 000 симв.
           </span>
         </div>
 
@@ -253,7 +259,7 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
           <input
             ref={fileRef}
             type="file"
-            accept=".txt,.md,.docx"
+            accept=".txt,.md,.rtf,.docx,.pdf"
             className="hidden"
             onChange={(event) => {
               const file = event.target.files?.[0];
@@ -269,6 +275,12 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
           >
             Файл
           </Button>
+
+          {!hasText && (
+            <Button variant="ghost" size="sm" onClick={insertExample}>
+              Вставить пример
+            </Button>
+          )}
 
           <Button
             onClick={onImprove}

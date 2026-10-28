@@ -1,6 +1,6 @@
 import type { AssistMode } from "@/types/ai";
 
-import { improveText, shortenText } from "./russian";
+import { improveText, shortenText } from "./russian.ts";
 
 const FIRST_TOKEN_DELAY_MS = 700;
 const TOKEN_DELAY_MS = 35;

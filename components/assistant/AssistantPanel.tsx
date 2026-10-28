@@ -183,6 +183,34 @@ export function AssistantPanel({
         </div>
       )}
 
+      {status === "success" && source && result && (
+        <details className="rounded-lg border border-slate-700/70 bg-slate-900/40">
+          <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-slate-300 hover:text-slate-100">
+            Сравнить до и после ·{" "}
+            {countWords(result) - countWords(source) > 0 ? "+" : ""}
+            {countWords(result) - countWords(source)} слов
+          </summary>
+          <div className="grid gap-2 border-t border-slate-700/60 p-2 sm:grid-cols-2">
+            <section className="min-w-0 rounded-md bg-slate-900/70 p-2">
+              <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                До · {countWords(source)} слов
+              </h3>
+              <p className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-300">
+                {source}
+              </p>
+            </section>
+            <section className="min-w-0 rounded-md bg-slate-900/70 p-2">
+              <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
+                После · {countWords(result)} слов
+              </h3>
+              <p className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-200">
+                {result}
+              </p>
+            </section>
+          </div>
+        </details>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         {isBusy && (
           <Button variant="danger" size="sm" onClick={onCancel}>

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "pages:build": "node scripts/copy-pdf-worker.mjs && vite build --config pages-site/vite.config.mts",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -21,6 +22,7 @@
     "fflate": "^0.8.3",
     "lucide-react": "^1.63.0",
     "next": "^15.5.28",
+    "pdfjs-dist": "^4.10.38",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "zod": "^4.6.7",
@@ -30,12 +32,14 @@
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
     "autoprefixer": "^10.6.2",
     "eslint": "^9.39.5",
     "eslint-config-next": "^15.5.28",
     "lighthouse": "^13.6.0",
     "postcss": "^8.5.32",
     "tailwindcss": "^3.4.19",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^8.3.5"
   }
 }

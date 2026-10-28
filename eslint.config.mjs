@@ -10,10 +10,12 @@ const config = [
   {
     ignores: [
       ".next/**",
+      "out/**",
       "node_modules/**",
       "next-env.d.ts",
       ".edge-profile/**",
       "docs/lighthouse.report.*",
+      "pages-site/public/pdf.worker.min.mjs",
     ],
   },
   ...compat.extends("next/core-web-vitals", "next/typescript"),

@@ -2,10 +2,12 @@ const BASE_URL = process.env.BASE_URL ?? "http://127.0.0.1:3100";
 const TEXT =
   "Привет! Мы хотим запустить лендинг 14 ноября и надо чтобы к этому времени были готовы тексты, дизайн и аналитика.";
 
-async function post(body, signal) {
+async function post(body, signal, origin) {
+  const headers = { "Content-Type": "application/json", Accept: "application/x-ndjson" };
+  if (origin) headers.Origin = origin;
   return fetch(`${BASE_URL}/api/ai`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
+    headers,
     body: JSON.stringify(body),
     signal,
   });
@@ -53,9 +55,51 @@ function check(name, condition, detail = "") {
 }
 
 {
+  const preflight = await fetch(`${BASE_URL}/api/ai`, {
+    method: "OPTIONS",
+    headers: {
+      Origin: "https://goviks.github.io",
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers": "content-type,accept",
+    },
+  });
+  check(
+    "GitHub Pages API preflight is allowed",
+    preflight.status === 204 &&
+      preflight.headers.get("access-control-allow-origin") === "https://goviks.github.io",
+    `${preflight.status}/${preflight.headers.get("access-control-allow-origin")}`,
+  );
+  const blockedPreflight = await fetch(`${BASE_URL}/api/ai`, {
+    method: "OPTIONS",
+    headers: { Origin: "https://example.com" },
+  });
+  check(
+    "unlisted origin gets no CORS permission",
+    !blockedPreflight.headers.has("access-control-allow-origin"),
+  );
+  const checkPreflight = await fetch(`${BASE_URL}/api/check`, {
+    method: "OPTIONS",
+    headers: {
+      Origin: "https://goviks.github.io",
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers": "content-type",
+    },
+  });
+  check(
+    "check API preflight is allowed",
+    checkPreflight.status === 204 &&
+      checkPreflight.headers.get("access-control-allow-origin") === "https://goviks.github.io",
+  );
+}
+
+{
   const requestStartedAt = performance.now();
-  const response = await post({ text: TEXT, mode: "improve" });
+  const response = await post({ text: TEXT, mode: "improve" }, undefined, "https://goviks.github.io");
   check("POST /api/ai → 200", response.status === 200, `status=${response.status}`);
+  check(
+    "AI stream is readable from Pages origin",
+    response.headers.get("access-control-allow-origin") === "https://goviks.github.io",
+  );
   check(
     "Content-Type = NDJSON",
     (response.headers.get("content-type") ?? "").includes("x-ndjson"),
@@ -73,7 +117,14 @@ function check(name, condition, detail = "") {
 
   const text = deltas.map((entry) => entry.event.text).join("");
   check("текст собран целиком", text.length > 100, `${text.length} символов, ${size} байт`);
-  check("дельты приходят во времени, а не пачкой", deltas.at(-1).at - deltas[0].at > 200, `${Math.round(deltas.at(-1).at - deltas[0].at)}ms разброс`);
+  const firstDelta = deltas[0];
+  const lastDelta = deltas.at(-1);
+  const deltaSpread = firstDelta && lastDelta ? lastDelta.at - firstDelta.at : 0;
+  check(
+    "дельты приходят во времени, а не пачкой",
+    deltaSpread > 200,
+    `${Math.round(deltaSpread)}ms разброс`,
+  );
 }
 
 {

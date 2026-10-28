@@ -2,6 +2,7 @@
 node_modules/
 .next/
 out/
+pages-site/public/pdf.worker.min.mjs
 next-env.d.ts
 *.tsbuildinfo
 

@@ -15,6 +15,31 @@ export interface SelectionRange {
   end: number;
 }
 
+export interface HistoryEntry {
+  id: string;
+  label: string;
+  text: string;
+  at: number;
+}
+
+const STRICT_TYPES = new Set(["spelling", "punctuation", "grammar", "typography"]);
+
+function filterIssues(
+  issues: CheckIssue[],
+  strictness: "all" | "errors",
+  ignoredWords: string[],
+  documentText: string,
+): CheckIssue[] {
+  return issues.filter((issue) => {
+    if (strictness === "errors" && !STRICT_TYPES.has(issue.issueType)) return false;
+    const fragment = documentText
+      .slice(issue.offset, issue.offset + issue.length)
+      .toLowerCase()
+      .trim();
+    return !ignoredWords.includes(fragment);
+  });
+}
+
 interface AssistantState {
   documentText: string;
   selection: SelectionRange | null;
@@ -29,9 +54,12 @@ interface AssistantState {
   mode: AssistMode;
 
   issues: CheckIssue[];
+  allIssues: CheckIssue[];
   activeIssue: number;
   highlightRange: SelectionRange | null;
   ignoredWords: string[];
+  strictness: "all" | "errors";
+  history: HistoryEntry[];
 
   setDocumentText: (text: string) => void;
   setSelection: (selection: SelectionRange | null) => void;
@@ -46,6 +74,9 @@ interface AssistantState {
   setIgnoredWords: (words: string[]) => void;
   ignoreWord: (word: string) => void;
   removeIgnoredWord: (word: string) => void;
+  setStrictness: (strictness: "all" | "errors") => void;
+  pushHistory: (label: string) => void;
+  restoreHistory: (id: string) => void;
   begin: (source: string, range: SelectionRange) => void;
   appendDelta: (delta: string) => void;
   succeed: (meta: StreamMeta | null) => void;
@@ -66,9 +97,12 @@ const initialState = {
   sourceRange: null,
   mode: "improve" as AssistMode,
   issues: [] as CheckIssue[],
+  allIssues: [] as CheckIssue[],
   activeIssue: 0,
   highlightRange: null,
   ignoredWords: [] as string[],
+  strictness: "all" as "all" | "errors",
+  history: [] as HistoryEntry[],
 };
 
 export function getSelectedText(
@@ -102,23 +136,60 @@ export const useAssistantStore = create<AssistantState>()((set, get) => ({
   setMode: (mode) => set({ mode }),
 
   setIssues: (issues) => {
-    const { documentText, ignoredWords } = get();
-
-    const filtered = issues.filter((issue) => {
-      const fragment = documentText
-        .slice(issue.offset, issue.offset + issue.length)
-        .toLowerCase()
-        .trim();
-      return !ignoredWords.includes(fragment);
-    });
-
+    const { documentText, ignoredWords, strictness } = get();
+    const filtered = filterIssues(issues, strictness, ignoredWords, documentText);
     const first = filtered[0];
+
     set({
+      allIssues: issues,
       issues: filtered,
       activeIssue: 0,
       highlightRange: first
         ? { start: first.offset, end: first.offset + first.length }
         : null,
+    });
+  },
+
+  setStrictness: (strictness) => {
+    const { allIssues, ignoredWords, documentText } = get();
+    const filtered = filterIssues(allIssues, strictness, ignoredWords, documentText);
+    const first = filtered[0];
+
+    set({
+      strictness,
+      issues: filtered,
+      activeIssue: 0,
+      highlightRange: first
+        ? { start: first.offset, end: first.offset + first.length }
+        : null,
+    });
+  },
+
+  pushHistory: (label) => {
+    const { documentText, history } = get();
+    if (!documentText.trim()) return;
+    if (history[0]?.text === documentText) return;
+
+    const entry: HistoryEntry = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      label,
+      text: documentText,
+      at: Date.now(),
+    };
+
+    set({ history: [entry, ...history].slice(0, 20) });
+  },
+
+  restoreHistory: (id) => {
+    const entry = get().history.find((item) => item.id === id);
+    if (!entry) return;
+    set({
+      documentText: entry.text,
+      issues: [],
+      allIssues: [],
+      activeIssue: 0,
+      highlightRange: null,
+      selection: null,
     });
   },
 
@@ -129,20 +200,15 @@ export const useAssistantStore = create<AssistantState>()((set, get) => ({
     const normalized = word.toLowerCase().trim();
     if (!normalized) return;
 
-    const { ignoredWords, issues, documentText } = get();
+    const { ignoredWords, allIssues, documentText, strictness } = get();
     if (ignoredWords.includes(normalized)) return;
 
-    const remaining = issues.filter((issue) => {
-      const fragment = documentText
-        .slice(issue.offset, issue.offset + issue.length)
-        .toLowerCase()
-        .trim();
-      return fragment !== normalized;
-    });
-
+    const nextIgnored = [...ignoredWords, normalized];
+    const remaining = filterIssues(allIssues, strictness, nextIgnored, documentText);
     const first = remaining[0];
+
     set({
-      ignoredWords: [...ignoredWords, normalized],
+      ignoredWords: nextIgnored,
       issues: remaining,
       activeIssue: 0,
       highlightRange: first
@@ -151,8 +217,21 @@ export const useAssistantStore = create<AssistantState>()((set, get) => ({
     });
   },
 
-  removeIgnoredWord: (word) =>
-    set({ ignoredWords: get().ignoredWords.filter((item) => item !== word) }),
+  removeIgnoredWord: (word) => {
+    const { ignoredWords, allIssues, documentText, strictness } = get();
+    const nextIgnored = ignoredWords.filter((item) => item !== word);
+    const filtered = filterIssues(allIssues, strictness, nextIgnored, documentText);
+    const first = filtered[0];
+
+    set({
+      ignoredWords: nextIgnored,
+      issues: filtered,
+      activeIssue: 0,
+      highlightRange: first
+        ? { start: first.offset, end: first.offset + first.length }
+        : null,
+    });
+  },
 
   focusIssue: (index) => {
     const issue = get().issues[index];
@@ -167,6 +246,8 @@ export const useAssistantStore = create<AssistantState>()((set, get) => ({
     const { issues, documentText, activeIssue } = get();
     const issue = issues[index];
     if (!issue) return;
+
+    get().pushHistory("Исправление ошибки");
 
     const nextText =
       documentText.slice(0, issue.offset) + replacement + documentText.slice(issue.offset + issue.length);
@@ -195,6 +276,8 @@ export const useAssistantStore = create<AssistantState>()((set, get) => ({
   insertResult: () => {
     const { documentText, selection, result, sourceRange } = get();
     if (!result) return;
+
+    get().pushHistory("Вставка ответа");
 
     const range = sourceRange ?? selection ?? { start: documentText.length, end: documentText.length };
     const start = Math.max(0, Math.min(range.start, documentText.length));

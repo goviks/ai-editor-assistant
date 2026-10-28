@@ -35,6 +35,11 @@ export function CheckPanel() {
   const ignoredWords = useAssistantStore((state) => state.ignoredWords);
   const ignoreWord = useAssistantStore((state) => state.ignoreWord);
   const removeIgnoredWord = useAssistantStore((state) => state.removeIgnoredWord);
+  const strictness = useAssistantStore((state) => state.strictness);
+  const setStrictness = useAssistantStore((state) => state.setStrictness);
+  const history = useAssistantStore((state) => state.history);
+  const restoreHistory = useAssistantStore((state) => state.restoreHistory);
+  const pushHistory = useAssistantStore((state) => state.pushHistory);
 
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -113,11 +118,12 @@ export function CheckPanel() {
       text = text.slice(0, issue.offset) + replacement + text.slice(issue.offset + issue.length);
     }
 
+    pushHistory("Применены правки");
     setDocumentText(text);
     setApplied(safe.length);
     setStatus("idle");
     setSource(null);
-  }, [documentText, issues, setDocumentText]);
+  }, [documentText, issues, pushHistory, setDocumentText]);
 
   const reset = useCallback(() => {
     setIssues([]);
@@ -248,6 +254,21 @@ export function CheckPanel() {
                 </button>
               );
             })}
+
+            <button
+              type="button"
+              onClick={() => setStrictness(strictness === "all" ? "errors" : "all")}
+              title="Показывать только ошибки или ещё и стиль"
+              className={cn(
+                "ml-auto rounded-full border px-2.5 py-0.5 text-[11px] transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
+                strictness === "errors"
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                  : "border-slate-700 text-slate-400 hover:text-slate-200",
+              )}
+            >
+              {strictness === "errors" ? "Только ошибки" : "Все замечания"}
+            </button>
           </div>
 
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
@@ -357,6 +378,33 @@ export function CheckPanel() {
             ))}
           </div>
         </div>
+      )}
+      {history.length > 0 && (
+        <details className="mt-3 border-t border-slate-700/60 pt-2">
+          <summary className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-300">
+            История версий · {history.length}
+          </summary>
+          <ul className="mt-2 flex max-h-[160px] flex-col gap-1 overflow-y-auto scrollbar-thin">
+            {history.map((entry) => (
+              <li key={entry.id}>
+                <button
+                  type="button"
+                  onClick={() => restoreHistory(entry.id)}
+                  title="Вернуть эту версию"
+                  className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-[11px] text-slate-400 transition-colors hover:bg-slate-900/60 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                >
+                  <span className="truncate">{entry.label}</span>
+                  <span className="shrink-0 text-slate-500">
+                    {new Date(entry.at).toLocaleTimeString("ru-RU", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </section>
   );

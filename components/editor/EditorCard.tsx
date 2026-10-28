@@ -66,6 +66,7 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
       setFileError(null);
       try {
         const text = await extractTextFromFile(file);
+        useAssistantStore.getState().pushHistory("Загружен файл");
         setDocumentText(text);
       } catch (error) {
         setFileError(error instanceof Error ? error.message : "Не удалось прочитать файл");

@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { Workspace } from "@/components/workspace";
+import { SiteFooter } from "@/components/SiteFooter";
 
 import "../app/globals.css";
 
@@ -20,9 +21,7 @@ createRoot(rootElement).render(
         </p>
       </header>
       <Workspace />
-      <footer className="border-t border-slate-800 pt-4 text-xs text-slate-500">
-        Черновик хранится локально в этом браузере.
-      </footer>
+      <SiteFooter />
     </main>
   </StrictMode>,
 );

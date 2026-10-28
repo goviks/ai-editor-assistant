@@ -4,6 +4,7 @@ import { Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { AssistantPanel } from "@/components/assistant/AssistantPanel";
+import { CheckPanel } from "@/components/editor/CheckPanel";
 import { EditorCard } from "@/components/editor/EditorCard";
 import { TextMetrics } from "@/components/editor/TextMetrics";
 import { useAIStream } from "@/lib/hooks/use-ai-stream";
@@ -75,6 +76,7 @@ export function Workspace() {
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <EditorCard onImprove={handleImprove} isBusy={isBusy} />
           <TextMetrics />
+          <CheckPanel />
         </div>
 
         <AssistantPanel

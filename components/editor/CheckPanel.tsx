@@ -32,6 +32,9 @@ export function CheckPanel() {
   const setIssues = useAssistantStore((state) => state.setIssues);
   const focusIssue = useAssistantStore((state) => state.focusIssue);
   const applyIssue = useAssistantStore((state) => state.applyIssue);
+  const ignoredWords = useAssistantStore((state) => state.ignoredWords);
+  const ignoreWord = useAssistantStore((state) => state.ignoreWord);
+  const removeIgnoredWord = useAssistantStore((state) => state.removeIgnoredWord);
 
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -297,31 +300,63 @@ export function CheckPanel() {
                     </span>{" "}
                     — {issue.message}
                   </p>
-                  {issue.replacements.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {issue.replacements.map((replacement) => (
-                        <button
-                          key={replacement}
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            applyIssue(index, replacement);
-                          }}
-                          className={cn(
-                            "rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-200",
-                            "transition-colors hover:bg-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
-                          )}
-                        >
-                          {replacement}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    {issue.replacements.map((replacement) => (
+                      <button
+                        key={replacement}
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          applyIssue(index, replacement);
+                        }}
+                        className={cn(
+                          "rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-200",
+                          "transition-colors hover:bg-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
+                        )}
+                      >
+                        {replacement}
+                      </button>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        ignoreWord(
+                          documentText.slice(issue.offset, issue.offset + issue.length),
+                        );
+                      }}
+                      className="rounded-md px-1.5 py-0.5 text-[11px] text-slate-500 transition-colors hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                    >
+                      В словарь
+                    </button>
+                  </div>
                 </li>
               );
             })}
           </ul>
         </>
+      )}
+
+      {ignoredWords.length > 0 && (
+        <div className="mt-3 border-t border-slate-700/60 pt-2">
+          <p className="text-[11px] text-slate-500">
+            Свой словарь: {ignoredWords.length} — эти слова не считаются ошибками
+          </p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {ignoredWords.map((word) => (
+              <button
+                key={word}
+                type="button"
+                onClick={() => removeIgnoredWord(word)}
+                title="Убрать из словаря"
+                className="rounded-full border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 transition-colors hover:border-red-500/40 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              >
+                {word} ×
+              </button>
+            ))}
+          </div>
+        </div>
       )}
     </section>
   );

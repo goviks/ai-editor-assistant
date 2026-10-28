@@ -12,12 +12,15 @@ import { useAssistantStore } from "@/lib/store/assistant-store";
 import type { AssistMode } from "@/types/ai";
 
 const DRAFT_KEY = "ai-editor:draft:v2";
+const IGNORED_KEY = "ai-editor:ignored";
 
 export function Workspace() {
   const status = useAssistantStore((state) => state.status);
   const insertResult = useAssistantStore((state) => state.insertResult);
   const documentText = useAssistantStore((state) => state.documentText);
   const setDocumentText = useAssistantStore((state) => state.setDocumentText);
+  const ignoredWords = useAssistantStore((state) => state.ignoredWords);
+  const setIgnoredWords = useAssistantStore((state) => state.setIgnoredWords);
 
   const { run, cancel, retry } = useAIStream();
   const [panelOpen, setPanelOpen] = useState(false);
@@ -69,6 +72,19 @@ export function Workspace() {
     }, 400);
     return () => clearTimeout(timer);
   }, [documentText]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(IGNORED_KEY);
+      if (raw) setIgnoredWords(JSON.parse(raw) as string[]);
+    } catch {
+      window.localStorage.removeItem(IGNORED_KEY);
+    }
+  }, [setIgnoredWords]);
+
+  useEffect(() => {
+    window.localStorage.setItem(IGNORED_KEY, JSON.stringify(ignoredWords));
+  }, [ignoredWords]);
 
   return (
     <>

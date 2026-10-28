@@ -1,10 +1,11 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
+import { Sparkles, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils/cn";
+import { extractTextFromFile } from "@/lib/utils/files";
 import { useAssistantStore } from "@/lib/store/assistant-store";
 
 const GHOST_TEXT =
@@ -55,7 +56,23 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleFile = useCallback(
+    async (file: File) => {
+      setFileError(null);
+      try {
+        const text = await extractTextFromFile(file);
+        setDocumentText(text);
+      } catch (error) {
+        setFileError(error instanceof Error ? error.message : "Не удалось прочитать файл");
+      }
+    },
+    [setDocumentText],
+  );
 
   const issues = useAssistantStore((state) => state.issues);
   const activeIssue = useAssistantStore((state) => state.activeIssue);
@@ -120,7 +137,21 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
   return (
     <section
       aria-labelledby="editor-heading"
-      className="flex min-w-0 flex-1 flex-col rounded-xl border border-slate-700 bg-slate-800 p-4"
+      onDragOver={(event) => {
+        event.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={(event) => {
+        event.preventDefault();
+        setIsDragging(false);
+        const file = event.dataTransfer.files?.[0];
+        if (file) void handleFile(file);
+      }}
+      className={cn(
+        "flex min-w-0 flex-1 flex-col rounded-xl border bg-slate-800 p-4 transition-colors",
+        isDragging ? "border-indigo-400" : "border-slate-700",
+      )}
     >
       <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -210,22 +241,47 @@ export function EditorCard({ onImprove, isBusy }: EditorCardProps) {
       </div>
 
       <footer className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <p id="editor-hint" className="text-xs text-slate-400">
-          Ctrl + Enter — улучшить выделенное или весь текст
-        </p>
+        <div className="flex flex-col gap-1">
+          <p id="editor-hint" className="text-xs text-slate-400">
+            Ctrl + Enter — улучшить выделенное или весь текст
+          </p>
+          {fileError && <p className="text-xs text-red-400">{fileError}</p>}
+        </div>
 
-        <Button
-          onClick={onImprove}
-          disabled={!canImprove}
-          icon={<Sparkles className="h-4 w-4" aria-hidden="true" />}
-          title={
-            selectedChars === 0
-              ? "Переписать весь текст"
-              : "Улучшить выделенный фрагмент"
-          }
-        >
-          Улучшить с AI
-        </Button>
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".txt,.md,.docx"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void handleFile(file);
+              event.target.value = "";
+            }}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => fileRef.current?.click()}
+            icon={<Upload className="h-3.5 w-3.5" aria-hidden="true" />}
+          >
+            Файл
+          </Button>
+
+          <Button
+            onClick={onImprove}
+            disabled={!canImprove}
+            icon={<Sparkles className="h-4 w-4" aria-hidden="true" />}
+            title={
+              selectedChars === 0
+                ? "Переписать весь текст"
+                : "Улучшить выделенный фрагмент"
+            }
+          >
+            Улучшить с AI
+          </Button>
+        </div>
       </footer>
     </section>
   );

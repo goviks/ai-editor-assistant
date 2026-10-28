@@ -31,6 +31,7 @@ interface AssistantState {
   issues: CheckIssue[];
   activeIssue: number;
   highlightRange: SelectionRange | null;
+  ignoredWords: string[];
 
   setDocumentText: (text: string) => void;
   setSelection: (selection: SelectionRange | null) => void;
@@ -42,6 +43,9 @@ interface AssistantState {
   focusIssue: (index: number) => void;
   applyIssue: (index: number, replacement: string) => void;
   clearHighlight: () => void;
+  setIgnoredWords: (words: string[]) => void;
+  ignoreWord: (word: string) => void;
+  removeIgnoredWord: (word: string) => void;
   begin: (source: string, range: SelectionRange) => void;
   appendDelta: (delta: string) => void;
   succeed: (meta: StreamMeta | null) => void;
@@ -64,6 +68,7 @@ const initialState = {
   issues: [] as CheckIssue[],
   activeIssue: 0,
   highlightRange: null,
+  ignoredWords: [] as string[],
 };
 
 export function getSelectedText(
@@ -97,15 +102,57 @@ export const useAssistantStore = create<AssistantState>()((set, get) => ({
   setMode: (mode) => set({ mode }),
 
   setIssues: (issues) => {
-    const first = issues[0];
+    const { documentText, ignoredWords } = get();
+
+    const filtered = issues.filter((issue) => {
+      const fragment = documentText
+        .slice(issue.offset, issue.offset + issue.length)
+        .toLowerCase()
+        .trim();
+      return !ignoredWords.includes(fragment);
+    });
+
+    const first = filtered[0];
     set({
-      issues,
+      issues: filtered,
       activeIssue: 0,
       highlightRange: first
         ? { start: first.offset, end: first.offset + first.length }
         : null,
     });
   },
+
+  setIgnoredWords: (words) =>
+    set({ ignoredWords: Array.from(new Set(words.map((word) => word.toLowerCase().trim()).filter(Boolean))) }),
+
+  ignoreWord: (word) => {
+    const normalized = word.toLowerCase().trim();
+    if (!normalized) return;
+
+    const { ignoredWords, issues, documentText } = get();
+    if (ignoredWords.includes(normalized)) return;
+
+    const remaining = issues.filter((issue) => {
+      const fragment = documentText
+        .slice(issue.offset, issue.offset + issue.length)
+        .toLowerCase()
+        .trim();
+      return fragment !== normalized;
+    });
+
+    const first = remaining[0];
+    set({
+      ignoredWords: [...ignoredWords, normalized],
+      issues: remaining,
+      activeIssue: 0,
+      highlightRange: first
+        ? { start: first.offset, end: first.offset + first.length }
+        : null,
+    });
+  },
+
+  removeIgnoredWord: (word) =>
+    set({ ignoredWords: get().ignoredWords.filter((item) => item !== word) }),
 
   focusIssue: (index) => {
     const issue = get().issues[index];

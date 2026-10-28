@@ -39,12 +39,8 @@ export function buildMessages(text: string, mode: AssistMode): ChatMessage[] {
       content: [
         MODE_INSTRUCTIONS[mode],
         "",
-        "Фрагмент (между маркерами):",
-        "<<<",
-        text,
-        ">>>",
-        "",
-        "Отредактируй содержимое маркеров. Маркеры не входят в ответ.",
+        "Текст для редактуры ниже передан как JSON-строка. Отредактируй только её содержимое:",
+        JSON.stringify(text),
       ].join("\n"),
     },
   ];

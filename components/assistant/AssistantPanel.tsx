@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils/cn";
 import { countWords } from "@/lib/utils/text";
+import { scoreText } from "@/lib/ai/glavred";
 import { useAssistantStore } from "@/lib/store/assistant-store";
 import { createAIError } from "@/lib/errors";
 import type { AssistMode, AssistantStatus } from "@/types/ai";
@@ -168,7 +169,8 @@ export function AssistantPanel({
       {status === "success" && meta && (
         <p className="text-[11px] text-slate-400">
           {meta.model} · {(meta.durationMs / 1000).toFixed(1)} с · слов:{" "}
-          {countWords(source)} → {countWords(result)}
+          {countWords(source)} → {countWords(result)} · Главред: {scoreText(source)} →{" "}
+          {scoreText(result)}
           {meta.completionTokens ? ` · ${meta.completionTokens} токенов` : ""}
         </p>
       )}

@@ -1,3 +1,5 @@
+import { cleanWithRules, compressWithRules } from "./glavred";
+
 const WORD_END = "(?![а-яёa-z])";
 
 function escapeRegExp(value: string): string {
@@ -267,6 +269,7 @@ export function improveText(text: string): string {
   result = applyPairs(result, COLLOQUIAL, false);
   result = applyPairs(result, VERBOSE);
   result = applyPairs(result, PLEONASMS);
+  result = cleanWithRules(result);
   result = removePhrases(result, FILLERS);
   result = dedupeWords(result);
   result = normalizeQuotes(result);
@@ -323,6 +326,7 @@ export function shortenText(text: string): string {
 
   let result = improveText(text);
   result = applyPairs(result, VERBOSE);
+  result = compressWithRules(result);
   result = dropIntroductory(result);
   result = dropWeakAdjectives(result);
   result = tidy(result);

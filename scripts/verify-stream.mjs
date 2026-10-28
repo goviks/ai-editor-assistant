@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { streamMockCompletion } from "../lib/ai/mock.ts";
 import { createEventParser, encodeEvent } from "../lib/stream/ndjson.ts";
 
+const SAMPLE_TEXT =
+  "Привет, Ирина! Хочу обсудить лендинг. Мы хотим запустить его 14 ноября и надо чтобы к этому времени были готовы тексты, дизайн и аналитика.";
+
 function createRouteStream(mode, signal) {
   const encoder = new TextEncoder();
   const startedAt = Date.now();
@@ -11,6 +14,7 @@ function createRouteStream(mode, signal) {
     async start(controller) {
       try {
         await streamMockCompletion({
+          text: SAMPLE_TEXT,
           mode,
           signal,
           onDelta: (text) => {
@@ -98,9 +102,9 @@ async function consume(response, { onDelta, chunkSize = 7 } = {}) {
 
 {
   const controller = new AbortController();
-  const response = new Response(createRouteStream("formalize", controller.signal));
+  const response = new Response(createRouteStream("shorten", controller.signal));
 
-  setTimeout(() => controller.abort(), 1400);
+  setTimeout(() => controller.abort(), 900);
   const { text, errorEvent } = await consume(response, { chunkSize: 11 });
 
   assert.equal(errorEvent?.error.code, "aborted");
@@ -111,17 +115,19 @@ async function consume(response, { onDelta, chunkSize = 7 } = {}) {
 
 {
   const results = new Map();
-  for (const mode of ["improve", "shorten", "formalize"]) {
+  for (const mode of ["improve", "shorten"]) {
     const controller = new AbortController();
     const response = new Response(createRouteStream(mode, controller.signal));
     const { text } = await consume(response, { chunkSize: 64 });
     results.set(mode, text);
   }
 
-  assert.notEqual(results.get("improve"), results.get("shorten"));
-  assert.notEqual(results.get("improve"), results.get("formalize"));
-  assert.ok(results.get("shorten").length < results.get("improve").length, "shorten должен быть короче");
-  console.log("ok  modes: improve/shorten/formalize различаются, shorten короче");
+  assert.notEqual(results.get("improve"), results.get("shorten"), "режимы должны давать разный текст");
+  assert.ok(
+    results.get("shorten").length < results.get("improve").length,
+    "shorten должен быть короче",
+  );
+  console.log("ok  modes: improve и shorten различаются, shorten короче");
 }
 
 console.log("\nВсе проверки протокола пройдены.");

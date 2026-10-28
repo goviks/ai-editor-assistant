@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { createAIError, errorFromStatus, normalizeError } from "@/lib/errors";
 import { createEventParser } from "@/lib/stream/ndjson";
 import { getSelectedText, useAssistantStore } from "@/lib/store/assistant-store";
-import type { AIError, ImproveErrorBody, ImproveRequest, StreamMeta } from "@/types/ai";
+import type { AIError, AssistMode, ImproveErrorBody, ImproveRequest, StreamMeta } from "@/types/ai";
 
 const ENDPOINT = "/api/ai";
 const REQUEST_TIMEOUT_MS = 45_000;
@@ -27,7 +27,7 @@ export function useAIStream() {
   const abortReasonRef = useRef<AbortReason>(null);
   const runIdRef = useRef(0);
 
-  const execute = useCallback(async (text: string, range: { start: number; end: number }) => {
+  const execute = useCallback(async (text: string, range: { start: number; end: number }, mode: AssistMode) => {
     const state = useAssistantStore.getState();
 
     controllerRef.current?.abort();
@@ -50,7 +50,7 @@ export function useAIStream() {
     }, REQUEST_TIMEOUT_MS);
 
     const startedAt = performance.now();
-    const payload: ImproveRequest = { text, mode: state.mode };
+    const payload: ImproveRequest = { text, mode };
 
     try {
       const response = await fetch(ENDPOINT, {
@@ -148,19 +148,23 @@ export function useAIStream() {
     }
   }, []);
 
-  const run = useCallback(async () => {
+  const run = useCallback(async (modeOverride?: AssistMode) => {
     const state = useAssistantStore.getState();
+    const mode = modeOverride ?? state.mode;
+
+    if (modeOverride) state.setMode(modeOverride);
+
     const selected = getSelectedText(state).trim();
 
     if (selected && state.selection) {
-      await execute(selected, { start: state.selection.start, end: state.selection.end });
+      await execute(selected, { start: state.selection.start, end: state.selection.end }, mode);
       return;
     }
 
     const whole = state.documentText.trim();
     if (!whole) return;
 
-    await execute(whole, { start: 0, end: state.documentText.length });
+    await execute(whole, { start: 0, end: state.documentText.length }, mode);
   }, [execute]);
 
   const cancel = useCallback(() => {
@@ -169,9 +173,9 @@ export function useAIStream() {
   }, []);
 
   const retry = useCallback(() => {
-    const { source, sourceRange, documentText } = useAssistantStore.getState();
+    const { source, sourceRange, documentText, mode } = useAssistantStore.getState();
     if (!source) return;
-    void execute(source, sourceRange ?? { start: 0, end: documentText.length });
+    void execute(source, sourceRange ?? { start: 0, end: documentText.length }, mode);
   }, [execute]);
 
   useEffect(

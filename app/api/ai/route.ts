@@ -40,7 +40,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   const bodySchema = z.object({
     text: z.string().trim().min(1).max(limit),
-    mode: z.enum(["improve", "shorten", "formalize"]).default("improve"),
+    mode: z.enum(["improve", "shorten"]).default("improve"),
   });
 
   let payload: unknown;

@@ -6,7 +6,7 @@ export type AssistantStatus =
   | "error"
   | "aborted";
 
-export type AssistMode = "improve" | "shorten" | "formalize";
+export type AssistMode = "improve" | "shorten";
 
 export type AIErrorCode =
   | "missing_key"

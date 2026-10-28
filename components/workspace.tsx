@@ -7,6 +7,7 @@ import { AssistantPanel } from "@/components/assistant/AssistantPanel";
 import { EditorCard } from "@/components/editor/EditorCard";
 import { useAIStream } from "@/lib/hooks/use-ai-stream";
 import { useAssistantStore } from "@/lib/store/assistant-store";
+import type { AssistMode } from "@/types/ai";
 
 const DRAFT_KEY = "ai-editor:draft:v2";
 
@@ -25,6 +26,14 @@ export function Workspace() {
     setPanelOpen(true);
     void run();
   }, [run]);
+
+  const handleModeSelect = useCallback(
+    (mode: AssistMode) => {
+      setPanelOpen(true);
+      void run(mode);
+    },
+    [run],
+  );
 
   const handleInsert = useCallback(() => {
     insertResult();
@@ -70,6 +79,7 @@ export function Workspace() {
           onCancel={cancel}
           onRetry={retry}
           onInsert={handleInsert}
+          onModeSelect={handleModeSelect}
         />
       </div>
 

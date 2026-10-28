@@ -3,29 +3,103 @@ import type { AssistMode } from "@/types/ai";
 const FIRST_TOKEN_DELAY_MS = 700;
 const TOKEN_DELAY_MS = 35;
 
-const FORMAL: Array<[RegExp, string]> = [
-  [/(?<![а-яёa-z])привет(?![а-яёa-z])/giu, "Здравствуйте"],
-  [/(?<![а-яёa-z])хочу(?![а-яёa-z])/giu, "хотел бы"],
-  [/(?<![а-яёa-z])надо(?![а-яёa-z])/giu, "необходимо"],
-  [/(?<![а-яёa-z])нужно(?![а-яёa-z])/giu, "необходимо"],
-  [/(?<![а-яёa-z])скажи(?![а-яёa-z])/giu, "сообщите"],
-  [/(?<![а-яёa-z])скажите(?![а-яёa-z])/giu, "сообщите"],
-  [/(?<![а-яёa-z])сдвинуть(?![а-яёa-z])/giu, "перенести"],
-  [/(?<![а-яёa-z])устраивают(?![а-яёa-z])/giu, "подходят"],
-  [/(?<![а-яёa-z])почти(?![а-яёa-z])/giu, "практически"],
-  [/(?<![а-яёa-z])ребята(?![а-яёa-z])/giu, "коллеги"],
-  [/(?<![а-яёa-z])прикинь(?![а-яёa-z])/giu, "обратите внимание"],
+const LITERARY: Array<[string, string]> = [
+  ["привет", "Здравствуйте"],
+  ["здравствуй", "Здравствуйте"],
+  ["надо", "нужно"],
+  ["чё", "что"],
+  ["щас", "сейчас"],
+  ["скажи", "скажите"],
+  ["хочу", "хотел бы"],
+  ["думаю", "полагаю"],
+  ["ребята", "коллеги"],
+  ["классно", "хорошо"],
+  ["клёво", "хорошо"],
+  ["чуток", "немного"],
 ];
 
-const IMPROVE: Array<[RegExp, string]> = [
-  [/(?<![а-яёa-z])надо чтобы(?![а-яёa-z])/giu, "нужно, чтобы"],
-  [/(?<![а-яёa-z])что бы(?![а-яёa-z])/giu, "чтобы"],
-  [/(?<![а-яёa-z])в течении(?![а-яёa-z])/giu, "в течение"],
-  [/(?<![а-яёa-z])не смотря на(?![а-яёa-z])/giu, "несмотря на"],
-  [/(?<![а-яёa-z])в место(?![а-яёa-z])/giu, "вместо"],
-  [/(?<![а-яёa-z])вобщем(?![а-яёa-z])/giu, "в общем"],
-  [/(?<![а-яёa-z])как то(?![а-яёa-z])/giu, "как-то"],
+const FILLERS: string[] = [
+  "ну",
+  "вот",
+  "типа",
+  "как бы",
+  "короче",
+  "блин",
+  "ээ",
+  "эм",
+  "значит",
+  "собственно",
+  "в общем-то",
 ];
+
+const IMPROVE_FIXES: Array<[string, string]> = [
+  ["надо чтобы", "нужно, чтобы"],
+  ["что бы", "чтобы"],
+  ["в течении", "в течение"],
+  ["не смотря на", "несмотря на"],
+  ["в место", "вместо"],
+  ["вобщем", "в общем"],
+  ["как то", "как-то"],
+  ["т.е.", "то есть"],
+  ["и т.д.", "и так далее"],
+];
+
+const VERBOSE: Array<[string, string]> = [
+  ["для того чтобы", "чтобы"],
+  ["в связи с тем что", "потому что"],
+  ["на данный момент", "сейчас"],
+  ["в настоящий момент", "сейчас"],
+  ["в настоящее время", "сейчас"],
+  ["большое количество", "много"],
+  ["в целях", "для"],
+  ["осуществляет", "делает"],
+  ["производит", "делает"],
+  ["по причине", "из-за"],
+  ["в том числе", "включая"],
+];
+
+const SHORTEN_FILLERS: string[] = [
+  "очень",
+  "просто",
+  "вообще",
+  "на самом деле",
+  "в принципе",
+  "по сути",
+  "стоит отметить",
+  "нужно отметить",
+  "можно сказать",
+  "так сказать",
+  "кстати",
+  "конечно",
+];
+
+function words(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function phrasePattern(phrase: string): RegExp {
+  return new RegExp(`(?<![а-яёa-z])${escapeRegExp(phrase)}(?![а-яёa-z])`, "giu");
+}
+
+function applyPhrases(text: string, pairs: Array<[string, string]>): string {
+  let result = text;
+  for (const [from, to] of pairs) {
+    result = result.replace(phrasePattern(from), to);
+  }
+  return result;
+}
+
+function removePhrases(text: string, phrases: string[]): string {
+  let result = text;
+  for (const phrase of phrases) {
+    result = result.replace(phrasePattern(phrase), " ");
+  }
+  return result.replace(/\s{2,}/g, " ").replace(/\s+([,.;:!?])/g, "$1");
+}
 
 function tidy(text: string): string {
   return text
@@ -36,17 +110,29 @@ function tidy(text: string): string {
     .replace(/([.!?])(?=[^\s.!?])/g, "$1 ")
     .replace(/\.{3,}/g, "…")
     .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .replace(/,\s*,/g, ",")
+    .replace(/\s{2,}/g, " ")
     .trim();
 }
 
+function addCommas(text: string): string {
+  return text
+    .replace(/([а-яёa-z])\s+(чтобы|который|которая|которое|которые)(?![а-яёa-z])/giu, "$1, $2")
+    .replace(/([а-яёa-z])\s+(если|когда)(?![а-яёa-z])/giu, "$1, $2");
+}
+
+function dedupeWords(text: string): string {
+  return text.replace(/(?<![а-яёa-z])([а-яёa-z]+)(\s+\1(?![а-яёa-z]))+/giu, "$1");
+}
+
 function capitalizeSentences(text: string): string {
-  return text.replace(/(^|[.!?]\s+)([a-zа-яё])/g, (_match, prefix: string, letter: string) => {
+  return text.replace(/(^|[.!?…]\s+)([a-zа-яё])/g, (_match, prefix: string, letter: string) => {
     return prefix + letter.toUpperCase();
   });
 }
 
 function finalize(text: string): string {
-  const trimmed = text.trim();
+  const trimmed = text.trim().replace(/\s+([,.;:!?])/g, "$1");
   if (!trimmed) return trimmed;
   return /[.!?…]$/.test(trimmed) ? trimmed : `${trimmed}.`;
 }
@@ -58,66 +144,44 @@ function splitSentences(text: string): string[] {
     .filter(Boolean);
 }
 
-const STOP_WORDS = new Set([
-  "и", "а", "но", "что", "чтобы", "в", "во", "на", "с", "со", "к", "ко",
-  "по", "ты", "я", "мы", "он", "она", "это", "не", "за", "из", "для", "же", "ли",
-]);
-
-function applyImprovements(text: string): string {
-  let result = text;
-  for (const [pattern, replacement] of IMPROVE) {
-    result = result.replace(pattern, replacement);
-  }
-  return result;
-}
-
 export function improveText(text: string): string {
-  return finalize(capitalizeSentences(applyImprovements(tidy(text))));
+  let result = tidy(text);
+  result = applyPhrases(result, IMPROVE_FIXES);
+  result = applyPhrases(result, LITERARY);
+  result = removePhrases(result, FILLERS);
+  result = dedupeWords(result);
+  result = addCommas(result);
+  return finalize(capitalizeSentences(result));
 }
 
 export function shortenText(text: string): string {
-  const prepared = applyImprovements(tidy(text));
-  const sentences = splitSentences(prepared);
+  const sourceWords = words(text);
 
-  if (sentences.length <= 1) {
-    const words = prepared.split(/\s+/);
-    const cut = Math.max(6, Math.ceil(words.length * 0.6));
+  let result = improveText(text);
+  result = applyPhrases(result, VERBOSE);
+  result = removePhrases(result, SHORTEN_FILLERS);
+  result = tidy(result);
 
-    if (cut >= words.length) return finalize(capitalizeSentences(prepared));
-
-    const slice = words.slice(0, cut);
-    while (slice.length > 3) {
-      const last = slice[slice.length - 1]?.toLowerCase().replace(/[^\p{L}]/gu, "") ?? "";
-      if (!STOP_WORDS.has(last)) break;
-      slice.pop();
-    }
-
-    return `${finalize(capitalizeSentences(slice.join(" "))).replace(/[.…]$/, "")}…`;
+  const sentences = splitSentences(result);
+  while (words(result) >= sourceWords && sentences.length > 1) {
+    sentences.pop();
+    result = finalize(capitalizeSentences(sentences.join(" ")));
   }
 
-  const target = Math.max(1, Math.ceil(sentences.length * 0.6));
-  return finalize(capitalizeSentences(sentences.slice(0, target).join(" ")));
-}
-
-export function formalizeText(text: string): string {
-  let result = applyImprovements(tidy(text));
-  for (const [pattern, replacement] of FORMAL) {
-    result = result.replace(pattern, replacement);
+  if (words(result) >= sourceWords) {
+    const parts = result.split(/\s+/).filter(Boolean);
+    const keep = Math.max(3, Math.floor(parts.length * 0.7));
+    result = finalize(capitalizeSentences(parts.slice(0, keep).join(" ")));
   }
-  return finalize(capitalizeSentences(result.replace(/\s*!+/g, ".")));
+
+  return finalize(capitalizeSentences(result));
 }
 
 export function transformText(text: string, mode: AssistMode): string {
   const source = text.trim();
   if (!source) return "";
 
-  const result =
-    mode === "shorten"
-      ? shortenText(source)
-      : mode === "formalize"
-        ? formalizeText(source)
-        : improveText(source);
-
+  const result = mode === "shorten" ? shortenText(source) : improveText(source);
   return result.trim() || source;
 }
 

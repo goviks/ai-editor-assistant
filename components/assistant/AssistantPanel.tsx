@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   ArrowDownToLine,
@@ -12,9 +12,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils/cn";
+import { countWords } from "@/lib/utils/text";
 import { useAssistantStore } from "@/lib/store/assistant-store";
 import { createAIError } from "@/lib/errors";
-import type { AssistantStatus } from "@/types/ai";
+import type { AssistMode, AssistantStatus } from "@/types/ai";
 
 import { EmptyState } from "./EmptyState";
 import { ErrorState } from "./ErrorState";
@@ -37,6 +38,7 @@ interface AssistantPanelProps {
   onCancel: () => void;
   onRetry: () => void;
   onInsert: () => void;
+  onModeSelect: (mode: AssistMode) => void;
 }
 
 export function AssistantPanel({
@@ -45,11 +47,13 @@ export function AssistantPanel({
   onCancel,
   onRetry,
   onInsert,
+  onModeSelect,
 }: AssistantPanelProps) {
   const status = useAssistantStore((state) => state.status);
   const result = useAssistantStore((state) => state.result);
   const error = useAssistantStore((state) => state.error);
   const meta = useAssistantStore((state) => state.meta);
+  const source = useAssistantStore((state) => state.source);
 
   const errorRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
@@ -119,7 +123,7 @@ export function AssistantPanel({
         </button>
       </header>
 
-      <ModeSelector />
+      <ModeSelector onSelect={onModeSelect} />
 
       <div
         role="log"
@@ -163,7 +167,8 @@ export function AssistantPanel({
 
       {status === "success" && meta && (
         <p className="text-[11px] text-slate-400">
-          {meta.model} · {(meta.durationMs / 1000).toFixed(1)} с
+          {meta.model} · {(meta.durationMs / 1000).toFixed(1)} с · слов:{" "}
+          {countWords(source)} → {countWords(result)}
           {meta.completionTokens ? ` · ${meta.completionTokens} токенов` : ""}
         </p>
       )}

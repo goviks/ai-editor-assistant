@@ -1,13 +1,17 @@
 "use client";
 
-import { useAssistantStore } from "@/lib/store/assistant-store";
 import { MODE_LABELS } from "@/lib/ai/prompt";
-import type { AssistMode } from "@/types/ai";
+import { useAssistantStore } from "@/lib/store/assistant-store";
 import { cn } from "@/lib/utils/cn";
+import type { AssistMode } from "@/types/ai";
 
-const MODES: AssistMode[] = ["improve", "shorten", "formalize"];
+const MODES: AssistMode[] = ["improve", "shorten"];
 
-export function ModeSelector() {
+interface ModeSelectorProps {
+  onSelect?: (mode: AssistMode) => void;
+}
+
+export function ModeSelector({ onSelect }: ModeSelectorProps) {
   const mode = useAssistantStore((state) => state.mode);
   const setMode = useAssistantStore((state) => state.setMode);
   const isBusy = useAssistantStore(
@@ -17,7 +21,7 @@ export function ModeSelector() {
   return (
     <div
       role="radiogroup"
-      aria-label="Режим обработки текста"
+      aria-label="Что сделать с текстом"
       className="flex gap-1 rounded-lg border border-slate-700/70 bg-slate-900/60 p-1"
     >
       {MODES.map((value) => {
@@ -29,7 +33,10 @@ export function ModeSelector() {
             role="radio"
             aria-checked={active}
             disabled={isBusy}
-            onClick={() => setMode(value)}
+            onClick={() => {
+              setMode(value);
+              onSelect?.(value);
+            }}
             className={cn(
               "flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",

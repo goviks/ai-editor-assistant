@@ -199,6 +199,38 @@ export const WATER_WORDS: string[] = RULES.filter(
   (rule) => rule.kind === "вода" || rule.kind === "усилитель",
 ).map((rule) => rule.from);
 
+export interface LocalIssue {
+  offset: number;
+  length: number;
+  message: string;
+  replacements: string[];
+  rule: string;
+}
+
+export function localIssues(text: string): LocalIssue[] {
+  const issues: LocalIssue[] = [];
+
+  for (const rule of RULES) {
+    const pattern = patternFor(rule.from);
+    let match = pattern.exec(text);
+
+    while (match !== null) {
+      issues.push({
+        offset: match.index,
+        length: match[0].length,
+        message: HINTS[rule.kind],
+        replacements: rule.to ? [rule.to] : [],
+        rule: `local_${rule.kind}`,
+      });
+
+      if (pattern.lastIndex === match.index) pattern.lastIndex += 1;
+      match = pattern.exec(text);
+    }
+  }
+
+  return issues.sort((a, b) => a.offset - b.offset).slice(0, 60);
+}
+
 export function findIssues(text: string): Issue[] {
   const issues: Issue[] = [];
 

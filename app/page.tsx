@@ -109,6 +109,36 @@ export default function HomePage() {
         </SectionCard>
       </section>
 
+      <section aria-label="Тарифы" className="grid gap-3 md:grid-cols-2">
+        <article className="flex flex-col gap-2 rounded-xl border border-slate-700/70 bg-slate-800/60 p-4">
+          <h2 className="text-sm font-semibold text-slate-100">Бесплатно</h2>
+          <p className="text-2xl font-semibold text-slate-100">0 ₽</p>
+          <ul className="flex flex-col gap-1 text-xs leading-relaxed text-slate-400">
+            <li>20 проверок за 10 минут</li>
+            <li>тексты до 5000 знаков</li>
+            <li>улучшение и сокращение без ограничений</li>
+            <li>метрики и инфостиль</li>
+          </ul>
+        </article>
+
+        <article className="flex flex-col gap-2 rounded-xl border border-indigo-500/40 bg-indigo-500/5 p-4">
+          <h2 className="text-sm font-semibold text-slate-100">Pro</h2>
+          <p className="text-2xl font-semibold text-indigo-300">по запросу</p>
+          <ul className="flex flex-col gap-1 text-xs leading-relaxed text-slate-400">
+            <li>без лимита проверок</li>
+            <li>свой словарь терминов и исключений</li>
+            <li>проверка через API для команды</li>
+            <li>отчёт по документам и экспорт</li>
+          </ul>
+          <a
+            href={`mailto:${EMAIL}?subject=AI-редактор: доступ Pro`}
+            className="mt-1 text-xs text-indigo-400 transition-colors hover:text-indigo-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+          >
+            Написать о доступе ↗
+          </a>
+        </article>
+      </section>
+
       <footer className="border-t border-slate-800 pt-4 text-xs text-slate-500">
         Все права сохранены — 2026
       </footer>

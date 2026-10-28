@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Loader2, SpellCheck } from "lucide-react";
+import { CheckCircle2, Download, Loader2, SpellCheck } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -15,6 +15,8 @@ interface Issue {
   replacements: string[];
 }
 
+type CheckSource = "engine" | "cache" | "local";
+
 export function CheckPanel() {
   const documentText = useAssistantStore((state) => state.documentText);
   const setDocumentText = useAssistantStore((state) => state.setDocumentText);
@@ -22,6 +24,8 @@ export function CheckPanel() {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<CheckSource | null>(null);
+  const [remaining, setRemaining] = useState<number | null>(null);
 
   const runCheck = useCallback(async () => {
     if (!documentText.trim()) return;
@@ -36,6 +40,15 @@ export function CheckPanel() {
         body: JSON.stringify({ text: documentText }),
       });
 
+      if (response.status === 429) {
+        const data = (await response.json()) as { retryAfterSeconds?: number };
+        const minutes = Math.max(1, Math.ceil((data.retryAfterSeconds ?? 60) / 60));
+        setStatus("error");
+        setRemaining(0);
+        setError(`Лимит бесплатных проверок исчерпан. Следующая — через ${minutes} мин.`);
+        return;
+      }
+
       if (!response.ok) {
         setStatus("error");
         setError(
@@ -46,8 +59,15 @@ export function CheckPanel() {
         return;
       }
 
-      const data = (await response.json()) as { matches?: Issue[] };
+      const data = (await response.json()) as {
+        matches?: Issue[];
+        source?: CheckSource;
+        remaining?: number;
+      };
+
       setIssues(data.matches ?? []);
+      setSource(data.source ?? "engine");
+      setRemaining(typeof data.remaining === "number" ? data.remaining : null);
       setStatus("done");
     } catch {
       setStatus("error");
@@ -77,7 +97,27 @@ export function CheckPanel() {
     setIssues([]);
     setStatus("idle");
     setError(null);
+    setSource(null);
   }, []);
+
+  const download = useCallback(() => {
+    const blob = new Blob([documentText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "text.txt";
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [documentText]);
+
+  const subtitle =
+    status === "done"
+      ? issues.length === 0
+        ? "Ошибок не найдено"
+        : `Найдено замечаний: ${issues.length}${source === "local" ? " · локальные правила" : ""}`
+      : status === "loading"
+        ? "Проверяю текст…"
+        : "Найдите ошибки и примените исправление в один клик";
 
   return (
     <section
@@ -86,32 +126,46 @@ export function CheckPanel() {
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-slate-100">Проверка орфографии и грамматики</h2>
-          <p className="text-xs text-slate-400">
-            {status === "done"
-              ? issues.length === 0
-                ? "Ошибок не найдено"
-                : `Найдено замечаний: ${issues.length}`
-              : "Найдите ошибки и примените исправление в один клик"}
-          </p>
+          <h2 className="text-sm font-semibold text-slate-100">
+            Проверка орфографии и грамматики
+          </h2>
+          <p className="text-xs text-slate-400">{subtitle}</p>
         </div>
 
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={status === "done" ? reset : runCheck}
-          isLoading={status === "loading"}
-          disabled={!documentText.trim() || status === "loading"}
-          icon={
-            status === "done" ? (
-              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              <SpellCheck className="h-4 w-4" aria-hidden="true" />
-            )
-          }
-        >
-          {status === "done" ? "Сбросить" : "Проверить"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {remaining !== null && (
+            <span className="text-[11px] text-slate-500">
+              осталось {remaining} проверок
+            </span>
+          )}
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={download}
+            disabled={!documentText.trim()}
+            icon={<Download className="h-3.5 w-3.5" aria-hidden="true" />}
+          >
+            Скачать
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={status === "done" ? reset : runCheck}
+            isLoading={status === "loading"}
+            disabled={!documentText.trim() || status === "loading"}
+            icon={
+              status === "done" ? (
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <SpellCheck className="h-4 w-4" aria-hidden="true" />
+              )
+            }
+          >
+            {status === "done" ? "Сбросить" : "Проверить"}
+          </Button>
+        </div>
       </div>
 
       {status === "loading" && (
